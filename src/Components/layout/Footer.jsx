@@ -8,14 +8,14 @@ const LINKS = {
     { label: "Content Marketing", href: "/#services" },
   ],
   Company: [
-    { label: "About Us", href: "/#about" },
-    { label: "Contact", href: "/#contact" },
-    { label: "Careers", href: "/#contact" },
+    { label: "About Us", href: "https://firebasestorage.googleapis.com/v0/b/needmet-partial.firebasestorage.app/o/Legal_documents%2FAbout_Us_NeedMet.pdf?alt=media&token=5242a145-80d1-44f9-8bed-8d74e8101dfe" },
+    { label: "Contact", href: "https://firebasestorage.googleapis.com/v0/b/needmet-partial.firebasestorage.app/o/Legal_documents%2FContact_Us_NeedMet.pdf?alt=media&token=3597fe5b-f101-400b-b6db-38dc1d87f286" },
+    // { label: "Careers", href: "/#contact" },
   ],
   Legal: [
-    { label: "Privacy Policy", href: "/#contact" },
-    { label: "Terms of Service", href: "/#contact" },
-    { label: "Refund Policy", href: "/#contact" },
+    { label: "Privacy Policy", href: "https://firebasestorage.googleapis.com/v0/b/needmet-partial.firebasestorage.app/o/Legal_documents%2FPrivacy_Policy_NeedMet_Digital.pdf?alt=media&token=1eebf4f9-4b39-460b-846e-239892a618b8" },
+    { label: "Terms & Conditions", href: "https://firebasestorage.googleapis.com/v0/b/needmet-partial.firebasestorage.app/o/Legal_documents%2FTerms_Conditions_NeedMet_Digital.pdf?alt=media&token=ebd28eff-1f1c-4cc0-9c4e-d1da67232635" },
+    { label: "Refund Policy", href: "https://firebasestorage.googleapis.com/v0/b/needmet-partial.firebasestorage.app/o/Legal_documents%2FRefund_Policy_NeedMet_Digital.pdf?alt=media&token=5d9c21f3-221e-4801-b1f7-49ca1b13bc45" },
   ],
 };
 
