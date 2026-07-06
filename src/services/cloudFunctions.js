@@ -29,22 +29,7 @@ export const verifyPaymentCallable = httpsCallable(functions, "verifyPayment");
  * @param {string} data.cashCode
  * @returns {Promise<Object>}
  */
-export const verifyCashPaymentCallable = async (data) => {
-  const url = "https://us-central1-needmet-partial.cloudfunctions.net/verifyCashPayments";
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || "Failed to verify cash payment");
-  }
-  const result = await response.json();
-  return { data: result };
-};
+export const verifyCashPaymentCallable = httpsCallable(functions, "verifyCashPayment");
 
 /**
  * Applies a coupon to check discount.
