@@ -28,10 +28,10 @@ export default function PriceBreakdown({ plan, pricing }) {
         <span>{formatCurrency(pricing.total)}</span>
       </div>
 
-      <div className="flex justify-between">
+      {/* <div className="flex justify-between">
         <span>You Saved</span>
         <span>-{formatCurrency(plan.discount)}</span>
-      </div>
+      </div> */}
 
 
       {pricing.couponDiscount > 0 && (
