@@ -68,12 +68,12 @@ export default function FailurePage() {
                 <span className="material-symbols-outlined text-base">refresh</span>
                 Try Again
               </button>
-              <button
+              {/* <button
                 onClick={handleGoToDashboard}
                 className="inline-flex w-full items-center justify-center rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50 focus:outline-none"
               >
                 Go to My Dashboard
-              </button>
+              </button> */}
             </>
           )}
         </div>

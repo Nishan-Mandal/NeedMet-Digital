@@ -36,12 +36,12 @@ export default function SuccessPage() {
           >
             Explore More Plans
           </button>
-          <button
+          {/* <button
             onClick={() => window.location.href = import.meta.env.VITE_DASHBOARD_URL || "https://needmet.in/dashboard"}
             className="inline-flex w-full items-center justify-center rounded-xl border border-primary px-4 py-3 text-sm font-semibold text-primary hover:bg-primary/5 focus:outline-none"
           >
             Go to My Dashboard
-          </button>
+          </button> */}
         </div>
       </div>
     </div>
