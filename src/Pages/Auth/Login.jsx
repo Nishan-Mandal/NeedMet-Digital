@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
-import { auth } from "../../config/firebase";
+import { RecaptchaVerifier, signInWithPhoneNumber, signOut } from "firebase/auth";
+import { auth, db } from "../../config/firebase";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import useAuth from "../../hooks/useAuth";
 
 export default function Login() {
@@ -57,6 +58,30 @@ export default function Login() {
       ? phoneNumber 
       : `+91${phoneNumber}`;
 
+    const raw10Digit = phoneNumber.slice(-10);
+
+    // Pre-check if user exists in Firestore
+    try {
+      const usersRef = collection(db, "users");
+      const q1 = query(usersRef, where("phone", "==", formattedNumber));
+      const querySnapshot1 = await getDocs(q1);
+      let userExists = !querySnapshot1.empty;
+
+      if (!userExists) {
+        const q2 = query(usersRef, where("phone", "==", raw10Digit));
+        const querySnapshot2 = await getDocs(q2);
+        userExists = !querySnapshot2.empty;
+      }
+
+      if (!userExists) {
+        setError("Account does not exist. Please sign up first.");
+        setLoading(false);
+        return;
+      }
+    } catch (firestoreError) {
+      console.warn("Firestore precheck ignored (likely due to permissions):", firestoreError);
+    }
+
     try {
       const appVerifier = window.recaptchaVerifier;
       const confirmation = await signInWithPhoneNumber(auth, formattedNumber, appVerifier);
@@ -81,63 +106,74 @@ export default function Login() {
     setError("");
 
     try {
-      await confirmationResult.confirm(otp);
-      // Success! User is authenticated via AuthContext automatically
+      const result = await confirmationResult.confirm(otp);
+      
+      if (result.user) {
+        // Definitive check if user exists in Firestore users collection
+        const usersRef = collection(db, "users");
+        const userDocRef = doc(usersRef, result.user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        let userExists = userDocSnap.exists();
+
+        if (!userExists && result.user.phoneNumber) {
+          const qPhone = query(usersRef, where("phone", "==", result.user.phoneNumber));
+          const qSnap = await getDocs(qPhone);
+          userExists = !qSnap.empty;
+        }
+
+        if (!userExists) {
+          await signOut(auth);
+          setError("Account does not exist. Please sign up first.");
+          setLoading(false);
+          return;
+        }
+      }
       
       // Navigate back to where they came from, or home
       const from = location.state?.from || "/";
       navigate(from, { replace: true });
     } catch (err) {
       console.error(err);
-      setError("Invalid OTP. Please try again.");
+      setError(err.message === "Account does not exist. Please sign up first." ? err.message : "Invalid OTP. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col lg:flex-row bg-[#fafdfb]">
+    <div className="flex  min-h-[calc(100vh-9rem)] w-full flex-col lg:flex-row bg-[#fafdfb]">
       
       {/* Left Column (Marketing) - Hidden on Mobile */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-[#0d3d2e] p-12 xl:p-20 text-white relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-[#0d3d2e] p-4 xl:p-20 text-white relative overflow-hidden">
         {/* Decorative elements */}
         <div className="absolute -left-20 -bottom-20 h-80 w-80 rounded-full bg-[#1a8a5a]/20 blur-3xl" />
         <div className="absolute right-10 top-10 h-60 w-60 rounded-full bg-[#22c47a]/10 blur-3xl" />
-        
-        {/* Top Logo */}
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-bold font-heading tracking-tight">NeedMet</span>
-        </div>
-        
+         
         {/* Center Content */}
-        <div className="max-w-md space-y-6 my-auto">
+        <div className="max-w-md space-y-3  my-auto">
           <h1 className="text-4xl xl:text-5xl font-bold font-heading leading-tight text-white">
-            Connect needs with solutions.
+           Discover the right digital solutions.
           </h1>
           <p className="text-base xl:text-lg text-white/80 leading-relaxed font-primary">
-            A trusted local platform where communities help each other discover services, opportunities and support.
+          A one-stop platform where individuals and businesses can explore, compare, and choose the best digital plans for their needs.
           </p>
           
           <ul className="space-y-4 pt-6 text-sm xl:text-base font-primary">
             <li className="flex items-center gap-3">
               <span className="material-symbols-outlined text-[#22c47a] bg-[#1a8a5a]/20 p-1.5 rounded-full text-lg">check</span>
-              <span>Verified community members</span>
+              <span>Comprehensive plans across multiple categories</span>
             </li>
             <li className="flex items-center gap-3">
               <span className="material-symbols-outlined text-[#22c47a] bg-[#1a8a5a]/20 p-1.5 rounded-full text-lg">check</span>
-              <span>Real-time listings & updates</span>
+              <span>Transparent pricing with real-time updates</span>
             </li>
             <li className="flex items-center gap-3">
               <span className="material-symbols-outlined text-[#22c47a] bg-[#1a8a5a]/20 p-1.5 rounded-full text-lg">check</span>
-              <span>Secure OTP authentication</span>
+              <span>Secure OTP authentication for a trusted experience</span>
             </li>
           </ul>
         </div>
-        
-        {/* Footer info */}
-        <div className="text-xs text-white/40 font-primary">
-          © 2026 NeedMet. All rights reserved.
-        </div>
+    
       </div>
 
       {/* Right Column (Login Card) */}
@@ -259,12 +295,12 @@ export default function Login() {
             </p>
             
             <p className="text-xs text-gray-400 max-w-xs mx-auto leading-relaxed font-primary">
-              By continuing, you agree to our{" "}
-              <a href="/terms_service" className="underline hover:text-[#0f5c3e] transition-colors">
+              By continung, you agree to our{" "}
+              <a href="/terms-conditions" className="underline hover:text-[#0f5c3e] transition-colors">
                 Terms of Service
               </a>{" "}
               and{" "}
-              <a href="/privacy_policy" className="underline hover:text-[#0f5c3e] transition-colors">
+              <a href="/privacy-policy" className="underline hover:text-[#0f5c3e] transition-colors">
                 Privacy Policy
               </a>.
             </p>

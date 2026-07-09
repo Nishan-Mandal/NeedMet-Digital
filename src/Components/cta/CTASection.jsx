@@ -1,10 +1,40 @@
 import Button from "../common/Button";
 import Container from "../layout/Container";
+import { useEffect, useState } from "react";
+import { fetchSupportNumber } from "../../services/firebase/service";
 
 export default function CTASection({
   title = "Not sure which plan is right?",
   description = "Get a free consultation with our digital experts. We'll analyze your business and recommend the perfect digital strategy."
 }) {
+  const [supportNumber, setSupportNumber] = useState("");
+
+  useEffect(() => {
+    async function loadSupport() {
+      const num = await fetchSupportNumber();
+      if (num) {
+        setSupportNumber(num);
+      }
+    }
+    loadSupport();
+  }, []);
+  const handleWhatsAppRedirect = () => {
+    if (supportNumber) {
+      // Clean number of non-digit characters
+      const cleaned = supportNumber.replace(/\D/g, "");
+      // Add country code if not present (defaulting to 91 if length is 10)
+      const finalNumber = cleaned.length === 10 ? `91${cleaned}` : cleaned;
+      window.open(`https://wa.me/${finalNumber}`, "_blank", "noopener,noreferrer");
+    } else {
+      // Fallback number if firebase isn't loaded or doesn't have it
+      window.open("https://wa.me/919999999999", "_blank", "noopener,noreferrer");
+    }
+  };
+
+
+
+
+
   return (
     <section className="py-6 sm:py-10 lg:py-12 px-5">
       <div className="relative overflow-hidden rounded-3xl lg:rounded-[40px] bg-gradient-to-br from-primary to-primary-light px-6 py-12 sm:px-10 sm:py-16 lg:px-16 lg:py-20 text-center text-white shadow-2xl">
@@ -30,14 +60,11 @@ export default function CTASection({
             <Button
               variant="secondary"
               className="w-full sm:w-auto px-8 py-3 lg:px-10"
-              onClick={() =>
-              (window.location.href =
-                "mailto:hello@needmetdigital.com?subject=Free%20Consultation")
-              }
+              onClick={() => handleWhatsAppRedirect()}
             >
               Book Consultation
             </Button>
-
+            {/* 
             <Button
               className="w-full border border-white/30 bg-white/10 px-8 py-3 hover:bg-white/20 sm:w-auto lg:px-10"
               onClick={() =>
@@ -46,7 +73,7 @@ export default function CTASection({
               }
             >
               Chat With Us
-            </Button>
+            </Button> */}
 
           </div>
 

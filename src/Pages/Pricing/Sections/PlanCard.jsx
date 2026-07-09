@@ -10,7 +10,7 @@ export default function PlanCard({
   return (
     <div
       onClick={() => onSelect(title)}
-      className={`relative cursor-pointer rounded-[24px] border-2 bg-white p-6 transition-all duration-300 ${
+      className={`relative cursor-pointer rounded-[24px] border-2 bg-white py-4 px-6 sm:p-6 transition-all duration-300 ${
         selected
           ? "border-primary ring-2 ring-primary/20"
           : "border-border/30 hover:border-primary/40"
@@ -22,7 +22,7 @@ export default function PlanCard({
         </div>
       )}
 
-      <h3 className="text-2xl font-bold">{title}</h3>
+      <h3 className="text-[21px] sm:text-[25px] lg:text-[25px] font-bold">{title}</h3>
 
       <div className="mt-3 flex items-end gap-1">
         <span className="text-3xl font-bold text-primary">

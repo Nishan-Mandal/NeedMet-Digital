@@ -1,39 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { collection, getDocs, doc, getDoc } from "firebase/firestore";
-import { db } from "../../../config/firebase";
+import { fetchSupportNumber } from "../../../services/firebase/service";
 
 export default function HelpCard() {
   const [supportNumber, setSupportNumber] = useState("");
 
   useEffect(() => {
-    async function fetchSupport() {
-      try {
-        // Try getting a specific document named "whatsappSupport" first
-        const docRef = doc(db, "home", "whatsappSupport");
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          const num = data.number || data.whatsappSupport || data.phone;
-          if (num) {
-            setSupportNumber(String(num));
-            return;
-          }
-        }
-
-        // Fallback: Query all documents in the "home" collection and look for a whatsappSupport field
-        const querySnapshot = await getDocs(collection(db, "home"));
-        querySnapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          const num = data.whatsappSupport || data.number || data.phone;
-          if (num) {
-            setSupportNumber(String(num));
-          }
-        });
-      } catch (error) {
-        console.error("Error fetching support number:", error);
+    async function loadSupport() {
+      const num = await fetchSupportNumber();
+      if (num) {
+        setSupportNumber(num);
       }
     }
-    fetchSupport();
+    loadSupport();
   }, []);
 
   const handleWhatsAppRedirect = () => {

@@ -80,7 +80,7 @@ export default function Navbar() {
                                 className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-primary text-white text-sm font-semibold hover:opacity-90 transition focus:outline-none focus:ring-2 focus:ring-primary/40"
                                 aria-label="Open profile menu"
                             >
-                              <i class="fa-solid fa-user"></i>
+                              <i className="fa-solid fa-user"></i>
                             </button>
 
                             {/* Dropdown Panel */}
@@ -120,7 +120,7 @@ export default function Navbar() {
                             className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-primary text-white hover:opacity-90 transition focus:outline-none focus:ring-2 focus:ring-primary/40"
                             aria-label="Login"
                         >
-                            <span className="material-symbols-outlined text-lg">person</span>
+                            <i className="fa-solid fa-user"></i>
                         </button>
                     )}
                 </div>

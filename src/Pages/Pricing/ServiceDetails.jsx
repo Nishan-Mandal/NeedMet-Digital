@@ -125,7 +125,7 @@ export default function ServiceDetails() {
       serviceId: id,
       planId: selectedPlanId,
       paymentMethod,
-      couponCode: couponData ? couponData.code : undefined,
+      couponCode: couponData ? couponData.couponCode : undefined,
       onSuccess: (paymentId) => {
         navigate("/checkout/success");
       },
@@ -140,7 +140,16 @@ export default function ServiceDetails() {
   };
 
   return (
-    <div>
+    <div className="relative">
+      {checkoutLoading && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="flex flex-col items-center justify-center rounded-3xl bg-white p-8 shadow-2xl space-y-4 max-w-sm mx-4">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+            <p className="text-lg font-bold text-gray-900 text-center">Wait a while...</p>
+            <p className="text-sm text-gray-500 text-center">Please do not refresh the page or close the window while the verification is in progress.</p>
+          </div>
+        </div>
+      )}
       <LoginPromptModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       <CashCodeModal
         isOpen={showCashModal}
@@ -179,6 +188,7 @@ export default function ServiceDetails() {
                 setPaymentMethod={setPaymentMethod}
                 onApplyCoupon={handleApplyCoupon}
                 couponMessage={couponMessage}
+                couponLoading={couponLoading}
                 onCheckout={handleCheckout}
                 checkoutLoading={checkoutLoading}
               />
@@ -258,6 +268,7 @@ export default function ServiceDetails() {
                 setPaymentMethod={setPaymentMethod}
                 onApplyCoupon={handleApplyCoupon}
                 couponMessage={couponMessage}
+                couponLoading={couponLoading}
                 checkoutLoading={checkoutLoading}
                 onCheckout={() => {
                   setShowOrderSummary(false);

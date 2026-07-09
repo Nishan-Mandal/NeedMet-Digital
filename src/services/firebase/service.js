@@ -37,3 +37,38 @@ export const fetchServiceWithPlans = async (serviceId) => {
         throw error;
     }
 };
+
+/**
+ * Fetches the WhatsApp support number from the "home" collection.
+ * 
+ * @returns {Promise<string|null>} The support number string or null if not found
+ */
+export const fetchSupportNumber = async () => {
+    try {
+        // Try getting a specific document named "whatsappSupport" first
+        const docRef = doc(db, "home", "whatsappSupport");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            const num = data.number || data.whatsappSupport || data.phone;
+            if (num) {
+                return String(num);
+            }
+        }
+
+        // Fallback: Query all documents in the "home" collection and look for a whatsappSupport field
+        const querySnapshot = await getDocs(collection(db, "home"));
+        let fallbackNum = null;
+        querySnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const num = data.whatsappSupport || data.number || data.phone;
+            if (num) {
+                fallbackNum = String(num);
+            }
+        });
+        return fallbackNum;
+    } catch (error) {
+        console.error("Error in fetchSupportNumber:", error);
+        return null;
+    }
+};

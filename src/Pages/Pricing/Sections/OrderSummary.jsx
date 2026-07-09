@@ -6,7 +6,7 @@ import PriceBreakdown from "./PriceBreakDown";
 import CheckoutButton from "./CheckoutButton";
 import HelpCard from "./HelpCard";
 
-export default function OrderSummary({ currentPlan, pricing, paymentMethod, setPaymentMethod, onApplyCoupon, couponMessage, onCheckout, checkoutLoading }) {
+export default function OrderSummary({ currentPlan, pricing, paymentMethod, setPaymentMethod, onApplyCoupon, couponMessage, couponLoading, onCheckout, checkoutLoading }) {
     return (
         <div
             className=" rounded-3xl" >
@@ -19,6 +19,7 @@ export default function OrderSummary({ currentPlan, pricing, paymentMethod, setP
                         <CouponInput
                             onApply={onApplyCoupon}
                             message={couponMessage}
+                            isLoading={couponLoading}
                         />
                     </div>
                     <PaymentSelector

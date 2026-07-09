@@ -31,7 +31,7 @@ export default function HeroSection({
             <div className="flex flex-col items-center justify-center gap-6">
 
                 {/* Left Content */}
-                <div className="flex-1 w-full space-y-6 sm:space-y-8 flex flex-col items-center text-center">
+                <div className="flex-1 w-full space-y-6 sm:space-y-10  sm:gap-2 gap-1  flex flex-col items-center text-center">
 
                     <HeroBadge text={badge} />
 
@@ -41,7 +41,7 @@ export default function HeroSection({
 
                             <br />
 
-                            <span className=" font-display font-normal ">
+                            <span className=" font-display font-normal m ">
                                 {highlight}
                             </span>
                         </h1>

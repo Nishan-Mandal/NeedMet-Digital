@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import { RecaptchaVerifier, signInWithPhoneNumber, updateProfile } from "firebase/auth";
-import { auth } from "../../config/firebase";
+import { RecaptchaVerifier, signInWithPhoneNumber, updateProfile, signOut } from "firebase/auth";
+import { auth, db } from "../../config/firebase";
+import { collection, query, where, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
 import useAuth from "../../hooks/useAuth";
 
 export default function Signup() {
@@ -59,6 +60,30 @@ export default function Signup() {
       ? phoneNumber 
       : `+91${phoneNumber}`;
 
+    const raw10Digit = phoneNumber.slice(-10);
+
+    // Pre-check if user already exists
+    try {
+      const usersRef = collection(db, "users");
+      const q1 = query(usersRef, where("phone", "==", formattedNumber));
+      const querySnapshot1 = await getDocs(q1);
+      let userExists = !querySnapshot1.empty;
+
+      if (!userExists) {
+        const q2 = query(usersRef, where("phone", "==", raw10Digit));
+        const querySnapshot2 = await getDocs(q2);
+        userExists = !querySnapshot2.empty;
+      }
+
+      if (userExists) {
+        setError("User already exists. Please go to Login.");
+        setLoading(false);
+        return;
+      }
+    } catch (firestoreError) {
+      console.warn("Firestore precheck ignored (likely due to permissions):", firestoreError);
+    }
+
     try {
       const appVerifier = window.recaptchaVerifier;
       const confirmation = await signInWithPhoneNumber(auth, formattedNumber, appVerifier);
@@ -84,8 +109,41 @@ export default function Signup() {
 
     try {
       const result = await confirmationResult.confirm(otp);
-      // Update display name with the full name entered
+      
       if (result.user) {
+        // Definitive check if user already exists
+        const usersRef = collection(db, "users");
+        const userDocRef = doc(usersRef, result.user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        let userExists = userDocSnap.exists();
+
+        if (!userExists && result.user.phoneNumber) {
+          const qPhone = query(usersRef, where("phone", "==", result.user.phoneNumber));
+          const qSnap = await getDocs(qPhone);
+          userExists = !qSnap.empty;
+        }
+
+        if (userExists) {
+          await signOut(auth);
+          setError("User already exists. Please go to Login.");
+          setLoading(false);
+          return;
+        }
+
+        const userPhone = result.user.phoneNumber || (phoneNumber.startsWith("+") ? phoneNumber : `+91${phoneNumber}`);
+        // Create user document in Firestore users collection
+        await setDoc(doc(db, "users", result.user.uid), {
+          uid: result.user.uid,
+          name: fullName.trim(),
+          phone: userPhone,
+          createdAt: new Date(),
+          dailyUsage: {
+            lastActiveOn: new Date(),
+            totalMinutes: 0
+          }
+        });
+
+        // Update display name with the full name entered
         await updateProfile(result.user, {
           displayName: fullName.trim()
         });
@@ -95,14 +153,14 @@ export default function Signup() {
       navigate(from, { replace: true });
     } catch (err) {
       console.error(err);
-      setError("Invalid OTP. Please try again.");
+      setError(err.message === "User already exists. Please go to Login." ? err.message : "Invalid OTP. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col lg:flex-row bg-[#fafdfb]">
+    <div className="flex min-h-[calc(screen-9rem)] w-full flex-col lg:flex-row bg-[#fafdfb]">
       
       {/* Left Column (Signup Card) */}
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 lg:px-8 bg-white">
@@ -246,11 +304,11 @@ export default function Signup() {
             
             <p className="text-xs text-gray-400 max-w-xs mx-auto leading-relaxed font-primary">
               By creating an account, you agree to our{" "}
-              <a href="/terms_service" className="underline hover:text-[#0f5c3e] transition-colors">
+              <a href="/terms-conditions" className="underline hover:text-[#0f5c3e] transition-colors">
                 Terms of Service
               </a>{" "}
               and{" "}
-              <a href="/privacy_policy" className="underline hover:text-[#0f5c3e] transition-colors">
+              <a href="/privacy-policy" className="underline hover:text-[#0f5c3e] transition-colors">
                 Privacy Policy
               </a>.
             </p>
@@ -264,41 +322,33 @@ export default function Signup() {
         {/* Decorative elements */}
         <div className="absolute -left-20 -bottom-20 h-80 w-80 rounded-full bg-[#1a8a5a]/20 blur-3xl" />
         <div className="absolute right-10 top-10 h-60 w-60 rounded-full bg-[#22c47a]/10 blur-3xl" />
-        
-        {/* Top Logo */}
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-bold font-heading tracking-tight">NeedMet</span>
-        </div>
-        
+         
         {/* Center Content */}
-        <div className="max-w-md space-y-6 my-auto">
+        <div className="max-w-md space-y-3 my-auto">
           <h1 className="text-4xl xl:text-5xl font-bold font-heading leading-tight text-white tracking-tight">
-            Become a part of NeedMet.
+            Start your digital journey with NeedMet-Digital.
           </h1>
           <p className="text-base xl:text-lg text-white/80 leading-relaxed font-primary">
-            Discover trusted local services, connect with your community and help others find what they need.
+            Join thousands of users discovering smarter digital solutions through one simple, secure platform.
           </p>
           
           <ul className="space-y-4 pt-6 text-sm xl:text-base font-primary">
             <li className="flex items-center gap-3">
               <span className="material-symbols-outlined text-[#22c47a] bg-[#1a8a5a]/20 p-1.5 rounded-full text-lg">check</span>
-              <span>Find local services nearby</span>
+              <span>Discover plans tailored to your needs</span>
             </li>
             <li className="flex items-center gap-3">
               <span className="material-symbols-outlined text-[#22c47a] bg-[#1a8a5a]/20 p-1.5 rounded-full text-lg">check</span>
-              <span>Trusted reviews & ratings</span>
+              <span>Compare benefits before you choose</span>
             </li>
             <li className="flex items-center gap-3">
               <span className="material-symbols-outlined text-[#22c47a] bg-[#1a8a5a]/20 p-1.5 rounded-full text-lg">check</span>
-              <span>Grow with your community</span>
+              <span>Secure login with OTP verification</span>
             </li>
           </ul>
         </div>
         
-        {/* Footer info */}
-        <div className="text-xs text-white/40 font-primary">
-          © 2026 NeedMet. All rights reserved.
-        </div>
+       
       </div>
 
     </div>

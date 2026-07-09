@@ -4,7 +4,7 @@ import { formatCurrency } from "../../../utils/Formatters";
 
 export default function PriceBreakdown({ plan, pricing }) {
 
-
+console.log(pricing)
   return (
     <div className="space-y-2">
 

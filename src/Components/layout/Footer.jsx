@@ -35,8 +35,6 @@ export default function Footer() {
              <Link to="/privacy-policy" className="text-[13px] text-white/65 hover:text-white transition-colors duration-200">Privacy</Link>
              <Link to="/terms-conditions" className="text-[13px] text-white/65 hover:text-white transition-colors duration-200">Terms</Link>
              <Link to="/refund-policy" className="text-[13px] text-white/65 hover:text-white transition-colors duration-200">Refund</Link>
-             <a href="https://needmet.in/safety" target="_blank" rel="noopener noreferrer" className="text-[13px] text-white/65 hover:text-white transition-colors duration-200">Safety</a>
-             <a href="https://needmet.in/community_guidelines" target="_blank" rel="noopener noreferrer" className="text-[13px] text-white/65 hover:text-white transition-colors duration-200">Guidelines</a>
            </div>
 
          </div>
