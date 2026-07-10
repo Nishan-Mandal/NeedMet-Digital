@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import Button from "../common/Button";
 import Container from "./Container";
-import { scrollToSection } from "../../utils/scrollTo";
 import useAuth from "../../hooks/useAuth";
 import { signOut } from "firebase/auth";
 import { auth } from "../../config/firebase";
+import companyLogo from "../../assets/fevicon.png";
+import play from "../../assets/play.png";
+import onlyplay from "../../assets/onlyplay.png";
 
 export default function Navbar() {
 
@@ -26,14 +27,6 @@ export default function Navbar() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const goToSection = (sectionId) => {
-        if (location.pathname !== "/") {
-            navigate(`/#${sectionId}`);
-            return;
-        }
-        scrollToSection(sectionId);
-    };
-
     const handleLoginRedirect = () => {
         navigate("/login", { state: { from: location.pathname } });
     };
@@ -45,33 +38,54 @@ export default function Navbar() {
     };
 
     return (
-        <header className="sticky top-0 z-50 h-16 sm:h-18 lg:h-20 border-b border-border/20 bg-background-secondary/80 backdrop-blur-md">
+        <header className="sticky top-0 z-50 h-16 sm:h-18 lg:h-20 border-b border-border/20 bg-background-secondary/80 backdrop-blur-md ">
             <Container className="flex h-full items-center justify-between px-4 sm:px-6 lg:px-8">
 
                 {/* Logo */}
-                <Link
-                    to="/"
-                    className="truncate text-2xl font-bold text-primary sm:text-2xl lg:text-4xl"
-                >
-                    NeedMet Digital
+                <Link to="/" className="flex items-center gap-2.5 hover:opacity-95 transition-opacity">
+                    <img src={companyLogo} alt="NeedMet Logo" className="h-8 w-auto sm:h-9" />
+                    <span className="font-heading text-lg sm:text-xl font-bold text-text">
+                        NeedMet-Digital
+                    </span>
                 </Link>
 
-                {/* Actions */}
-                <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
+                {/* Actions (Play Store and Profile) */}
+                <div className="flex items-center gap-3 sm:gap-4">
+                    {/* Play Store Button (Desktop style: text badge, Mobile style: icon button) */}
+                    <a
+                        href="https://play.google.com/store/apps/details?id=com.findon.app"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hidden sm:flex items-center gap-2 rounded-xl transition-all "
+                    >
+                        <img src={play} alt="" className="h-8 w-auto sm:h-9" />
+                    </a>
+
+                    <a
+                        href="https://play.google.com/store/apps/details?id=com.findon.app"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex sm:hidden h-8 w-8 items-center justify-center  transition-all "
+                        aria-label="Get it on Play Store"
+                    >
+                        <img src={onlyplay} alt="" className="h-8 w-auto sm:h-9" />
+
+                    </a>
+
+                    {/* Profile Dropdown or Login */}
                     {currentUser ? (
                         <div className="relative" ref={dropdownRef}>
-                            {/* Profile Avatar — toggle dropdown */}
                             <button
                                 onClick={() => setDropdownOpen((prev) => !prev)}
-                                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white text-sm font-semibold hover:opacity-90 transition focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-primary text-white text-sm font-semibold hover:opacity-90 transition focus:outline-none focus:ring-2 focus:ring-primary/40"
                                 aria-label="Open profile menu"
                             >
-                                {currentUser.phoneNumber?.slice(-2) || "U"}
+                              <i className="fa-solid fa-user"></i>
                             </button>
 
                             {/* Dropdown Panel */}
                             {dropdownOpen && (
-                                <div className="absolute right-0 top-12 z-50 w-64 rounded-2xl border border-border/30 bg-white shadow-xl p-4 space-y-4">
+                                <div className="absolute right-0 top-11 z-50 w-64 rounded-2xl border border-border/30 bg-white shadow-xl p-4 space-y-4">
                                     {/* User Info */}
                                     <div className="space-y-1">
                                         <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
@@ -101,13 +115,13 @@ export default function Navbar() {
                             )}
                         </div>
                     ) : (
-                        <Button
-                            variant="ghost"
+                        <button
                             onClick={handleLoginRedirect}
-                            className="bg-green-300 hover:bg-green-400 px-4 py-1 text-lg text-black sm:h-10 sm:px-4 sm:text-sm lg:h-11 lg:px-6 lg:text-base"
+                            className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-primary text-white hover:opacity-90 transition focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            aria-label="Login"
                         >
-                            Login
-                        </Button>
+                            <i className="fa-solid fa-user"></i>
+                        </button>
                     )}
                 </div>
 
@@ -115,4 +129,3 @@ export default function Navbar() {
         </header>
     );
 }
-

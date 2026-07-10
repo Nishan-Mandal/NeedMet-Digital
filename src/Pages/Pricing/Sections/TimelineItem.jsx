@@ -21,7 +21,7 @@ export default function TimelineItem({
           {title}
         </h3>
 
-        <p className="mt-2 text-sm leading-6 text-text-secondary sm:text-base sm:leading-7">
+        <p className="mt-2 text-sm leading-4 text-text-secondary sm:text-base sm:leading-7">
           {description}
         </p>
       </div>

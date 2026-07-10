@@ -10,11 +10,15 @@ export default function ServiceInfo({ service }) {
                     className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
 
+                <span className="absolute top-4 left-4 z-10 inline-block rounded-lg bg-primary/90 px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-white sm:text-xs lg:hidden">
+                    {service.category || service.tags?.[0] || "Digital Service"}
+                </span>
+
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
                 <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 lg:bottom-8 lg:left-8 lg:right-8 text-white">
 
-                    <span className="inline-block rounded-lg bg-primary/90 px-3 py-1 text-[10px] font-medium uppercase tracking-wider sm:text-xs">
+                    <span className="hidden lg:inline-block rounded-lg bg-primary/90 px-3 py-1 text-[10px] font-medium uppercase tracking-wider sm:text-xs">
                         {service.category || service.tags?.[0] || "Digital Service"}
                     </span>
 

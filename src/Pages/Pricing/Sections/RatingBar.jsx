@@ -9,16 +9,18 @@ export default function RatingBar({
   return (
     <div className="flex flex-wrap items-center gap-5 mt-1">
       <div className="flex items-center justify-between sm:gap-5  w-full sm:w-auto">
-        <div className="  sm:flex items-center gap-1">
-          <span
-            className="material-symbols-outlined text-primary"
+        <div className="sm:flex justify-center items-center gap-2 pl-[10px]  ">
+        <div className="flex items-center gap- px-3">
+            <span
+            className="material-symbols-outlined text-primary  "
             style={{ fontVariationSettings: "'FILL' 1" }}
           >
             star
           </span>
-          <span className="text-2xl font-bold">{rating}</span>
+          <p className="text-2xl font-bold text-primary  ">{rating}</p>
+        </div>
           <div className="flex flex-col">
-            <span className="text-text-secondary text-sm">({reviews} Reviews)</span>
+            <span className="text-sm font-medium ">({reviews} Reviews)</span>
           </div>
         </div>
 

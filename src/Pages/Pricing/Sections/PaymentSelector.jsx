@@ -12,7 +12,7 @@ export default function PaymentSelector({
 
       <div className="grid grid-cols-3 gap-3">
         <PaymentOption
-          icon="payments"
+          icon="full_coverage"
           label="Full"
           selected={paymentMethod === "FULL"}
           onClick={() => setPaymentMethod("FULL")}
@@ -32,7 +32,7 @@ export default function PaymentSelector({
           onClick={() => setPaymentMethod("Transfer")}
         /> */}
         <PaymentOption
-          icon="money"
+          icon="payments"
           label="Cash"
           selected={paymentMethod === "CASH"}
           onClick={() => setPaymentMethod("CASH")}

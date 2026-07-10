@@ -8,11 +8,11 @@ export default function ServiceGrid({
  console.log(services)
     return (
 
-        <section id="services" className="py-20 scroll-mt-36">
+        <section id="services" className="py-10 sm:py-14 scroll-mt-36">
 
             <Container>
 
-                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-2 xl:grid-cols-4">
 
                     {services.map((service) => (
 

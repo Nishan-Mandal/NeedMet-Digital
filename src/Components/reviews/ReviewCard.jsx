@@ -6,22 +6,14 @@ export default function ReviewCard({ name, role, image, review, bgColor }) {
 
     return (
         <>
-            <div className="rounded-3xl border border-border/30 bg-white p-6 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl h-[280px] flex flex-col justify-between">
+            <div className="rounded-3xl border border-border/30 bg-white p-6 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl h-[230px] flex flex-col justify-between">
                 <div>
                     <div className="mb-5 flex items-start justify-between">
                         <div className="flex items-center gap-4">
-                            <div className={`h-12 w-12 overflow-hidden rounded-full shrink-0 ${bgColor || "bg-gray-200"}`}>
-                                {image ? (
-                                    <img
-                                        src={image}
-                                        alt={name}
-                                        className="h-full w-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white">
-                                        {name?.charAt(0)}
+                            <div className={"h-12 w-12 overflow-hidden rounded-full shrink-0 bg-green-800"}>
+                               <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white">
+                                        {name?.charAt(0).toUpperCase()}
                                     </div>
-                                )}
                             </div>
                             <div>
                                 <h4 className="font-bold line-clamp-1">{name}</h4>

@@ -4,7 +4,7 @@ export default function usePricing(plan, basePrice, couponDiscount = 0) {
 
     return useMemo(() => {
         const total = plan.price || 0;
-        const discountAmount = plan.discount || 0;
+        const discountAmount = 0;
         const subtotal = Math.max(total - discountAmount, 0);
         const grand = subtotal - couponDiscount;
 

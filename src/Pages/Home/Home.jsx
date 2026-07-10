@@ -6,7 +6,7 @@ import FilterBar from "../../Components/services/Filterbar";
 import ServiceGrid from "../../Components/services/ServiceGrid";
 import CTASection from "../../Components/cta/CTASection";
 import ReviewSection from "../../Components/reviews/ReviewSection";
-
+import demoReviews from "../../data/demoreview";
 import useParallax from "../../hooks/useParallax";
 import { scrollToSection } from "../../utils/scrollTo";
 import { fetchServices, fetchReviews, fetchCategories } from "../../services/db";
@@ -17,6 +17,8 @@ const parsePrice = (price) => {
 };
 
 const SORT_OPTIONS = ["default", "price-asc", "price-desc", "title"];
+
+
 
 export default function Home() {
     const [activeCategory, setActiveCategory] = useState("All");
@@ -35,14 +37,20 @@ export default function Home() {
     useEffect(() => {
         const loadData = async () => {
             setIsLoading(true);
-            const [services, reviews, categories] = await Promise.all([
+            
+            // Commented out firebase reviews fetch
+            // const [services, reviews, categories] = await Promise.all([
+            //     fetchServices(),
+            //     fetchReviews(),
+            //     fetchCategories()
+            // ]);
+            const [services, categories] = await Promise.all([
                 fetchServices(),
-                fetchReviews(),
                 fetchCategories()
             ]);
             
             setServicesData(services);
-            setReviewsData(reviews);
+            setReviewsData(demoReviews);
             setCategoriesData(categories);
             
             setIsLoading(false);
@@ -103,6 +111,9 @@ export default function Home() {
     return (
         <>
             <Container>
+                <div>
+                    
+              
                 <main>
                     <HeroSection
                         parallax={parallax}
@@ -137,6 +148,7 @@ export default function Home() {
                         reviews={reviewsData}
                     />
                 )}
+                  </div>
             </Container>
         </>
     );

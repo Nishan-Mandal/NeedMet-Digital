@@ -53,12 +53,15 @@ export default function ServiceCard({
                     handleCardClick();
                 }
             }}
-            className={`group bg-white rounded-3xl border overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all duration-300 ${
-                featured ? "border-primary/40 ring-2 ring-primary/10" : "border-border/50 hover:border-primary/30"
-            } ${id ? "cursor-pointer" : ""}`}
+            className={`group bg-white rounded-2xl sm:rounded-3xl border overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl
+    ${featured
+                    ? "border-primary/40 ring-2 ring-primary/10"
+                    : "border-border/50 hover:border-primary/30"
+                }
+    ${id ? "cursor-pointer" : ""}`}
         >
             {/* IMAGE */}
-            <div className="relative h-48 overflow-hidden">
+            <div className="relative h-44 sm:h-52 lg:h-56 overflow-hidden">
                 <img
                     src={image}
                     alt={title}
@@ -66,8 +69,12 @@ export default function ServiceCard({
                 />
 
                 {badge && (
-                    <div className="absolute top-4 left-4">
-                        <span className={`${getBadgeColor(badge)} px-3 py-1 rounded-full text-xs font-semibold shadow-sm`}>
+                    <div className="absolute top-3 left-3 sm:top-4 sm:left-4">
+                        <span
+                            className={`${getBadgeColor(
+                                badge
+                            )} px-2.5 py-1 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold shadow-sm`}
+                        >
                             {badge}
                         </span>
                     </div>
@@ -75,14 +82,16 @@ export default function ServiceCard({
             </div>
 
             {/* CONTENT */}
-            <div className="p-5 space-y-3">
+            <div className="p-4 sm:p-5 lg:p-6 flex flex-col h-full">
+
                 {/* TITLE */}
-                <div className="flex items-start gap-2 h-[56px]">
-                    <span className="material-symbols-outlined mt-0.5 text-primary shrink-0">
+                <div className="flex items-start gap-2 min-h-[52px] sm:min-h-[60px]">
+                    <span className="material-symbols-outlined text-primary text-xl sm:text-2xl shrink-0 mt-0.5">
                         {icon}
                     </span>
+
                     <h3
-                        className="text-lg font-bold text-text line-clamp-2 leading-tight"
+                        className="font-bold text-base sm:text-lg lg:text-xl leading-snug line-clamp-2"
                         title={title}
                     >
                         {title}
@@ -91,44 +100,52 @@ export default function ServiceCard({
 
                 {/* DESCRIPTION */}
                 <p
-                    className="text-sm text-text-secondary line-clamp-2 h-[40px] leading-tight border border-white"
+                    className="mt-3 text-sm sm:text-[15px] text-text-secondary leading-relaxed line-clamp-2 min-h-[42px] sm:min-h-[48px]"
                     title={description}
                 >
                     {description}
                 </p>
 
                 {/* TAGS */}
-                <div className="flex flex-wrap gap-2 h-[26px] overflow-hidden">
+                <div className="mt-4 flex flex-wrap gap-2 min-h-[32px]">
                     {tags.length > 0 ? (
                         tags.map((tag, idx) => (
-                            <span key={idx} className="bg-background-secondary px-2 py-1 rounded-lg text-xs font-medium text-text-secondary border border-border/50">
+                            <span
+                                key={idx}
+                                className="bg-background-secondary border border-border/50 rounded-lg px-2 py-1 text-[11px] sm:text-xs font-medium text-text-secondary"
+                            >
                                 {tag}
                             </span>
                         ))
                     ) : (
-                        <span className="bg-transparent px-2 py-1 rounded-lg text-xs invisible">placeholder</span>
+                        <div className="h-7" />
                     )}
                 </div>
 
-                {/* PRICE & ACTION */}
-                <div className="pt-4 flex items-center justify-between border-t border-border/40 mt-auto">
+                {/* PRICE */}
+                <div className="mt-5 pt-4 border-t border-border/40 flex items-center justify-between">
                     <div>
-                        <p className="text-xs text-text-secondary mb-0.5 font-medium">
+                        <p className="text-[11px] sm:text-xs text-text-secondary font-medium">
                             {featured ? "Bundle Price" : "Starts at"}
                         </p>
-                        <p className="text-xl font-bold text-primary leading-none">
+
+                        <p className="text-xl sm:text-3xl font-bold text-primary">
                             {price}
                         </p>
                     </div>
 
-                    <button 
-                        className="bg-primary/10 hover:bg-primary text-primary hover:text-white p-3 rounded-2xl transition-all flex items-center justify-center shrink-0"
+                    <button
                         onClick={(e) => {
                             e.stopPropagation();
                             handleCardClick();
                         }}
+                        className="flex items-center justify-center rounded-xl sm:rounded-2xl
+                p-2.5 sm:p-3 bg-primary/10 hover:bg-primary
+                text-primary hover:text-white transition-all shrink-0"
                     >
-                        <span className="material-symbols-outlined">{buttonIcon}</span>
+                        <span className="material-symbols-outlined text-xl sm:text-2xl">
+                            {buttonIcon}
+                        </span>
                     </button>
                 </div>
             </div>

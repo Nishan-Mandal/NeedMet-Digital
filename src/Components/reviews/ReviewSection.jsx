@@ -2,7 +2,7 @@ import ReviewCard from "./ReviewCard";
 
 export default function ReviewSection({ reviews }) {
     return (
-        <section id="reviews" className="py-20 scroll-mt-36">
+        <section id="reviews" className="py-10 sm:py-14 scroll-mt-36">
             <style>
                 {`
                 @keyframes marquee {
@@ -22,8 +22,11 @@ export default function ReviewSection({ reviews }) {
                 `}
             </style>
 
-            <div className="mb-12 text-center">
-                <h2 className="text-4xl font-bold">
+            <div className="mb-10 text-center">
+                <span className="block text-[11px] font-bold tracking-[0.2em] uppercase text-[#0f5c3e] mb-1.5 sm:mb-3 font-primary">
+                    TESTIMONIALS
+                </span>
+                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-[-0.02em] leading-[1.15] text-[#0f5c3e] font-heading">
                     Client Reviews
                 </h2>
             </div>

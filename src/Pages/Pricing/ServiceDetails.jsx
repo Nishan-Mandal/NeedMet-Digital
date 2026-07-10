@@ -125,7 +125,7 @@ export default function ServiceDetails() {
       serviceId: id,
       planId: selectedPlanId,
       paymentMethod,
-      couponCode: couponData ? couponData.code : undefined,
+      couponCode: couponData ? couponData.couponCode : undefined,
       onSuccess: (paymentId) => {
         navigate("/checkout/success");
       },
@@ -140,7 +140,16 @@ export default function ServiceDetails() {
   };
 
   return (
-    <div style={{ zoom: 0.90 }}>
+    <div className="relative">
+      {checkoutLoading && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="flex flex-col items-center justify-center rounded-3xl bg-white p-8 shadow-2xl space-y-4 max-w-sm mx-4">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+            <p className="text-lg font-bold text-gray-900 text-center">Wait a while...</p>
+            <p className="text-sm text-gray-500 text-center">Please do not refresh the page or close the window while the verification is in progress.</p>
+          </div>
+        </div>
+      )}
       <LoginPromptModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       <CashCodeModal
         isOpen={showCashModal}
@@ -150,7 +159,7 @@ export default function ServiceDetails() {
         couponCode={cashContext?.couponCode}
       />
       {/* Main Layout */}
-      <div className="mx-auto max-w-7xl px-5 sm:px-0 py-10 pb-32 lg:pb-10">
+      <div className="relative mx-auto max-w-7xl px-5 sm:px-5 lg:px-5 py-10 pb-10 lg:pb-10">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
 
           {/* Left */}
@@ -179,6 +188,7 @@ export default function ServiceDetails() {
                 setPaymentMethod={setPaymentMethod}
                 onApplyCoupon={handleApplyCoupon}
                 couponMessage={couponMessage}
+                couponLoading={couponLoading}
                 onCheckout={handleCheckout}
                 checkoutLoading={checkoutLoading}
               />
@@ -186,34 +196,31 @@ export default function ServiceDetails() {
           </aside>
 
         </div>
-      </div>
 
-      {/* ================= MOBILE STICKY BAR ================= */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/20 bg-white/95 p-4 backdrop-blur-md lg:hidden">
+        {/* ================= MOBILE STICKY BAR ================= */}
+        <div className="sticky bottom-0 z-40 mt-6 border border-border/20 bg-white/95 p-1 shadow-lg rounded-2xl backdrop-blur-md lg:hidden">
+          <button
+            onClick={() => setShowOrderSummary(true)}
+            className="flex w-full items-center justify-between rounded-2xl bg-primary px-5 py-4 text-white shadow-xl"
+          >
+            <div className="text-left">
+              <p className="text-xs text-white/80">
+                {currentPlan.name}
+              </p>
 
-        <button
-          onClick={() => setShowOrderSummary(true)}
-          className="flex w-full items-center justify-between rounded-2xl bg-primary px-5 py-4 text-white shadow-xl"
-        >
-          <div className="text-left">
-            <p className="text-xs text-white/80">
-              {currentPlan.name}
-            </p>
+              <p className="text-xl font-bold">
+                ₹{pricing.grand.toLocaleString("en-IN")}
+              </p>
+            </div>
 
-            <p className="text-xl font-bold">
-              ₹{pricing.grand.toLocaleString("en-IN")}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 font-medium">
-            View Summary
-
-            <span className="material-symbols-outlined">
-              expand_less
-            </span>
-          </div>
-        </button>
-
+            <div className="flex items-center gap-2 font-medium">
+              View Summary
+              <span className="material-symbols-outlined">
+                expand_less
+              </span>
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* ================= MOBILE DRAWER ================= */}
@@ -261,6 +268,7 @@ export default function ServiceDetails() {
                 setPaymentMethod={setPaymentMethod}
                 onApplyCoupon={handleApplyCoupon}
                 couponMessage={couponMessage}
+                couponLoading={couponLoading}
                 checkoutLoading={checkoutLoading}
                 onCheckout={() => {
                   setShowOrderSummary(false);

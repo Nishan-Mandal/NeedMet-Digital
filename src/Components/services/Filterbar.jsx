@@ -26,11 +26,11 @@ console.log (categories)
         <section className=" border-b border-border/20 bg-background-secondary/80 px-4 py-4 backdrop-blur-md">
             {/* Desktop */}
             <div className="hidden items-center justify-between gap-4 md:flex">
-                <CategoryTabs
+                {/* <CategoryTabs
                     categories={categories}
                     activeCategory={activeCategory}
                     onCategoryChange={onCategoryChange}
-                />
+                /> */}
 
                 <SearchBar
                     value={searchQuery}
@@ -38,18 +38,18 @@ console.log (categories)
                     className="max-w-md flex-1"
                 />
 
-                <SortButton
+                {/* <SortButton
                     value={sortBy}
                     onChange={onSort}
-                />
+                /> */}
             </div>
 
             {/* Mobile */}
             <div className="space-y-3 md:hidden">
-                <SearchBar
+                {/* <SearchBar
                     value={searchQuery}
                     onChange={onSearchChange}
-                />
+                /> */}
 
                 <div className="grid grid-cols-2 gap-3">
                     <CategoryTabs
@@ -59,10 +59,10 @@ console.log (categories)
                         mobile
                     />
 
-                    <SortButton
+                    {/* <SortButton
                         value={sortBy}
                         onChange={onSort}
-                    />
+                    /> */}
                 </div>
             </div>
         </section>
