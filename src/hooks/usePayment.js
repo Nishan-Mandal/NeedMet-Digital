@@ -22,6 +22,11 @@ export default function usePayment() {
         handler: function (response) {
           resolve(response);
         },
+        modal: {
+          ondismiss: function () {
+            reject(new Error("Payment cancelled by user"));
+          },
+        },
       });
 
       rzp.on("payment.failed", function (response) {

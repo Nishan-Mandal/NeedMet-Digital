@@ -17,10 +17,10 @@ export default function RatingBar({
           >
             star
           </span>
-          <p className="text-2xl font-bold text-primary  ">{rating}</p>
+          <p className="text-2xl font-bold text-primary  ">{rating?rating:4.8}</p>
         </div>
           <div className="flex flex-col">
-            <span className="text-sm font-medium ">({reviews} Reviews)</span>
+            <span className="text-sm font-medium ">({reviews?reviews:80} Reviews)</span>
           </div>
         </div>
 
@@ -28,7 +28,7 @@ export default function RatingBar({
 
         <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
           <span className="material-symbols-outlined text-primary icon-3xl">groups</span>
-          <span className="text-sm sm:text-[16px] font-medium">{formatNumber(clients)}+ Served</span>
+          <span className="text-sm sm:text-[16px] font-medium">{formatNumber(clients?clients:80)}+ Served</span>
         </div>
 
 
