@@ -19,7 +19,7 @@ export default function CashCodeModal({ isOpen, onClose, serviceId, planId, coup
     try {
       await verifyCashPaymentService(serviceId, planId, couponCode, code.trim());
       onClose();
-      navigate("/checkout/success");
+      navigate(`/checkout/success?paymentType=CASH&serviceId=${encodeURIComponent(serviceId || "")}&planId=${encodeURIComponent(planId || "")}`);
     } catch (err) {
       setError(err.message || "Failed to verify cash code");
     } finally {

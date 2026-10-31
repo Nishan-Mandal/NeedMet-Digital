@@ -35,3 +35,12 @@ export const formatNumber = (value) => {
  */
 export const capitalize = (text = "") =>
   text.charAt(0).toUpperCase() + text.slice(1);
+
+// Re-export duration utilities
+export {
+  formatPlanDuration,
+  getSafeDurationDays,
+  formatPlanTitle,
+  sanitizePlanVariant,
+  isZeroOrEmptyDuration,
+} from "./duration.utils";

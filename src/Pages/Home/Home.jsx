@@ -127,6 +127,7 @@ export default function Home() {
                         onSearchChange={setSearchQuery}
                         onSort={handleSort}
                         sortBy={sortBy}
+                        totalCount={filteredServices.length}
                     />
 
                     {isLoading ? (

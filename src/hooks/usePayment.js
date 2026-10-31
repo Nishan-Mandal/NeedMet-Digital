@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { verifyPaymentService } from "../services/payment.service";
+import { verifyPaymentService, verifyMandateService } from "../services/payment.service";
 
 export default function usePayment() {
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -54,10 +54,29 @@ export default function usePayment() {
     }
   };
 
+  /**
+   * Verifies the Razorpay subscription mandate authorization via Cloud Functions
+   */
+  const verifyMandate = async ({ purchaseId, subscriptionId, paymentId, signature }) => {
+    setPaymentLoading(true);
+    setPaymentError(null);
+    try {
+      const data = await verifyMandateService({ purchaseId, subscriptionId, paymentId, signature });
+      return data;
+    } catch (err) {
+      setPaymentError(err.message || "Mandate verification failed");
+      throw err;
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
   return {
     initiateRazorpayCheckout,
     verifyPayment,
+    verifyMandate,
     paymentLoading,
     paymentError,
   };
 }
+
