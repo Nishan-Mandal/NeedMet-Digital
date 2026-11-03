@@ -134,7 +134,7 @@ export default function PurchasedPlanDetailsPage() {
       <CheckoutLoadingModal
         isOpen={checkoutLoading}
         stepFeedback={{
-          title: "Authorizing E-Mandate",
+          title: "Authorizing AutoPay",
           desc: "Preparing your recurring auto-pay authorization with Razorpay...",
         }}
         paymentMethod="EMI"

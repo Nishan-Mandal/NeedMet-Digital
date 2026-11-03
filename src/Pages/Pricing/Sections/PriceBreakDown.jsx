@@ -3,6 +3,25 @@ import { formatCurrency, formatPlanDuration } from "../../../utils/Formatters";
 export default function PriceBreakdown({ plan, pricing }) {
   const isEmi = pricing?.isEmi;
 
+  // Recurring mandate cycles = plan month - 1 (1st month is covered by upfront down payment)
+  const getPlanMonths = () => {
+    const text = `${plan?.duration || ""} ${plan?.planType || ""} ${plan?.name || ""}`;
+    const mMatch = text.match(/(\d+)\s*(?:month|m\b)/i);
+    if (mMatch && Number(mMatch[1]) > 0) return Number(mMatch[1]);
+    if (/1\s*year/i.test(text)) return 12;
+    if (plan?.durationDays && Number(plan.durationDays) > 0) {
+      return Math.max(Math.round(Number(plan.durationDays) / 30), 1);
+    }
+    if (pricing?.totalCycles && Number(pricing.totalCycles) > 0) {
+      return Number(pricing.totalCycles);
+    }
+    return 1;
+  };
+
+  const planMonths = getPlanMonths();
+  const recurringCycles = Math.max(planMonths - 1, 1);
+  const billingDay = Number(plan?.billingDay ?? plan?.emiConfig?.billingDay ?? 9);
+
   return (
     <div className="space-y-3 text-sm">
       <div className="flex justify-between text-gray-700">
@@ -63,7 +82,7 @@ export default function PriceBreakdown({ plan, pricing }) {
                   <span className="text-xs font-normal text-gray-500"> / mo</span>
                 </span>
                 <span className="block text-[11px] text-gray-500">
-                  ({pricing.totalCycles} cycles, starts +30 days)
+                  ({recurringCycles} {recurringCycles === 1 ? "cycle" : "cycles"}, debited on the {billingDay}th of each month)
                 </span>
               </div>
             </div>
@@ -81,4 +100,4 @@ export default function PriceBreakdown({ plan, pricing }) {
       )}
     </div>
   );
-}
+}

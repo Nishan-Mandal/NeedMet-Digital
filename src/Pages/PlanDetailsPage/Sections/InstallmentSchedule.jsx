@@ -160,9 +160,12 @@ export default function InstallmentSchedule({ purchase }) {
     });
   } else {
     // Fallback: Synthesize from mandate paidCount if stored installments absent
+    const fallbackBillingDay = Number(pricing.billingDay || 9);
     for (let i = 1; i <= cyclesCount; i++) {
       const dueDate = new Date(baseDate);
       dueDate.setMonth(dueDate.getMonth() + i);
+      const maxDay = new Date(dueDate.getFullYear(), dueDate.getMonth() + 1, 0).getDate();
+      dueDate.setDate(Math.min(fallbackBillingDay, maxDay));
       const dueDateStr = formatScheduleDate(dueDate);
       const isCompleted = Boolean(
         (purchase.paidCycles && i <= purchase.paidCycles) ||

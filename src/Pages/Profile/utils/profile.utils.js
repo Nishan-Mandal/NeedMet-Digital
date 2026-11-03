@@ -198,7 +198,7 @@ export function reconcileUserPurchases(purchasesData = [], plansData = [], servi
 }
 
 /**
- * Checks whether an EMI purchase requires E-Mandate setup.
+ * Checks whether an EMI purchase requires AutoPay setup.
  */
 export function isPurchasePendingMandate(p) {
   if (!p) return false;

@@ -16,14 +16,14 @@ export default function MandateActionAlert({
           </div>
           <div className="space-y-1 min-w-0 flex-1">
             <h3 className="font-heading text-sm sm:text-base font-bold text-amber-950">
-              Down Payment Received • E-Mandate Setup Required
+              Down Payment Received • AutoPay Setup Required
             </h3>
             <p className="text-xs text-amber-900 leading-relaxed max-w-xl">
               Your down payment of{" "}
               <strong className="font-heading">
                 ₹{Number(upfrontPaid || 0).toLocaleString("en-IN")}
               </strong>{" "}
-              is verified. Please authorize your E-Mandate to activate ongoing service deliverables and schedule recurring installment payments ({totalCycles} cycles of ₹{Number(emiAmount || 0).toLocaleString("en-IN")}/mo).
+              is verified. Please authorize your AutoPay to activate ongoing service deliverables and schedule recurring installment payments ({totalCycles} cycles of ₹{Number(emiAmount || 0).toLocaleString("en-IN")}/mo).
             </p>
           </div>
         </div>
@@ -37,7 +37,7 @@ export default function MandateActionAlert({
           <span className="material-symbols-outlined text-base">
             {checkoutLoading ? "progress_activity" : "verified_user"}
           </span>
-          {checkoutLoading ? "Preparing Gateway..." : "Complete E-Mandate Setup"}
+          {checkoutLoading ? "Preparing Gateway..." : "Complete AutoPay Setup"}
         </button>
       </div>
     </div>

@@ -17,20 +17,37 @@ export default function usePayment() {
         return;
       }
 
+      let isCompleted = false;
+      let lastFailure = null;
+
       const rzp = new window.Razorpay({
         ...options,
         handler: function (response) {
+          isCompleted = true;
           resolve(response);
         },
         modal: {
           ondismiss: function () {
-            reject(new Error("Payment cancelled by user"));
+            if (!isCompleted) {
+              if (lastFailure) {
+                const err = new Error(lastFailure.description || lastFailure.reason || "Payment cancelled or failed");
+                err.code = lastFailure.code;
+                err.details = lastFailure;
+                reject(err);
+              } else {
+                reject(new Error("Payment cancelled by user"));
+              }
+            }
           },
         },
       });
 
       rzp.on("payment.failed", function (response) {
-        reject(response.error);
+        console.warn("Razorpay in-modal payment attempt failed (popup still open for retry):", response.error);
+        lastFailure = response.error;
+        // Do NOT reject the checkout promise here!
+        // Razorpay modal remains open and allows the customer to retry with another
+        // UPI app, card, or payment method without breaking the checkout session.
       });
 
       rzp.open();

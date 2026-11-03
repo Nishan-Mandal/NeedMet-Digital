@@ -151,7 +151,7 @@ export default function SuccessPage() {
               {requiresMandate
                 ? "UPFRONT PAYMENT VERIFIED"
                 : isMandateAuthorized
-                ? "E-MANDATE AUTHORIZED"
+                ? "AUTOPAY SETUP COMPLETE"
                 : isCash
                 ? "CASH APPROVED"
                 : "PAYMENT SUCCESSFUL"}
@@ -169,7 +169,7 @@ export default function SuccessPage() {
 
             <p className="text-[11px] sm:text-xs text-gray-500 max-w-sm mx-auto leading-relaxed">
               {requiresMandate
-                ? "Initial payment verified. Complete your e-mandate setup to activate ongoing service deliverables."
+                ? "Initial payment verified. Complete your AutoPay setup to activate ongoing service deliverables."
                 : "Transaction completed successfully. Your service plan is active."}
             </p>
           </div>

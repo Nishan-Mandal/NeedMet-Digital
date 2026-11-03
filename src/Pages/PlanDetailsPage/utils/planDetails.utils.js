@@ -35,7 +35,7 @@ export function getStatusConfig(purchase) {
 
   if (isEmi && !isMandateAuthorized) {
     return {
-      label: "Action Required: E-Mandate",
+      label: "Action Required: AutoPay",
       variant: "warning",
       icon: "pending_actions",
       badgeClass: "bg-amber-50 text-amber-900 border-amber-300 ring-1 ring-amber-200/60",

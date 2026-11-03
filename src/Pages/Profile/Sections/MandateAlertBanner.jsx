@@ -15,28 +15,18 @@ export default function MandateAlertBanner({
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="text-sm sm:text-base font-bold text-amber-950">
-              Complete your E-Mandate setup
+              Complete your AutoPay setup
             </h3>
             <p className="text-xs text-amber-900/90 leading-relaxed mt-0.5">
               You have{" "}
               <strong className="font-bold text-amber-950">
                 {pendingCount} purchased plan{pendingCount > 1 ? "s" : ""}
               </strong>{" "}
-              with verified down payment requiring E-Mandate authorization before activation. Complete setup below to activate recurring payments.
+              with verified down payment requiring AutoPay authorization before activation. Complete setup below to activate recurring payments.
             </p>
           </div>
         </div>
 
-        {onActionClick && (
-          <button
-            type="button"
-            onClick={onActionClick}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-900 hover:bg-amber-950 text-white px-3.5 py-2 text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
-          >
-            <span>Resolve Now</span>
-            <span className="material-symbols-outlined text-sm">arrow_forward</span>
-          </button>
-        )}
       </div>
     </div>
   );

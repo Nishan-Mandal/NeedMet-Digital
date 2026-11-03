@@ -23,10 +23,10 @@ function getStatusConfig(purchase) {
   const isMandateAuthorized = purchase.mandate?.status === "authorized";
   const isPlanMarkedActive = purchase.planAccessStatus === "active" || purchase.status === "active";
 
-  // E-Mandate required check
+  // AutoPay required check
   if (isEmi && !isMandateAuthorized) {
     return {
-      label: "E-Mandate Required",
+      label: "AutoPay Required",
       variant: "warning",
       icon: "pending_actions",
       badgeClass: "bg-amber-400 text-gray-950 font-bold shadow-md ring-2 ring-amber-300/80",

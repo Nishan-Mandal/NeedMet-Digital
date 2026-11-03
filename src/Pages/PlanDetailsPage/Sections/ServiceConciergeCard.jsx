@@ -42,7 +42,7 @@ export default function ServiceConciergeCard({ purchase }) {
     const isMandateAuthorized = purchase?.mandate?.status === "authorized";
     const isMandateNeeded = isEmi && !isMandateAuthorized;
     const statusLabel = isMandateNeeded
-      ? "Action Required (E-Mandate Setup)"
+      ? "Action Required (AutoPay Setup)"
       : (purchase?.planAccessStatus === "active" || purchase?.status === "active")
       ? "Active Plan"
       : "In Progress";
