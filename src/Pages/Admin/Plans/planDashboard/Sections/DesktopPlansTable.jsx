@@ -17,6 +17,7 @@ export default function DesktopPlansTable({
   onToggleExpand,
   onToggleStatus,
   onDeleteClick,
+  onCloneClick,
   actionInProgress,
 }) {
   return (
@@ -196,6 +197,16 @@ export default function DesktopPlansTable({
                       >
                         <span className="material-symbols-outlined text-base">edit</span>
                       </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => onCloneClick?.(plan)}
+                        className="rounded p-1 text-gray-600 hover:bg-gray-100 hover:text-[#266C51] transition cursor-pointer"
+                        title="Clone Plan"
+                        aria-label={`Clone ${plan.name}`}
+                      >
+                        <span className="material-symbols-outlined text-base">content_copy</span>
+                      </button>
 
                       <button
                         type="button"
