@@ -7,12 +7,15 @@ import {
   createVariant,
   calculateVariantPricing,
   normalizeExistingPlan,
+  clonePlanForForm,
   buildPlanPayload,
 } from "../utils/planForm.utils";
 
-export default function usePlanForm({ planId, isEditMode, currentUser, navigate }) {
+export default function usePlanForm({ planId, cloneFromId, isEditMode, currentUser, navigate }) {
+  const isCloneMode = Boolean(cloneFromId) && !isEditMode;
+  const [clonedFromTitle, setClonedFromTitle] = useState("");
   const [services, setServices] = useState([]);
-  const [loading, setLoading] = useState(isEditMode);
+  const [loading, setLoading] = useState(isEditMode || isCloneMode);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -28,7 +31,7 @@ export default function usePlanForm({ planId, isEditMode, currentUser, navigate 
   const [formData, setFormData] = useState(DEFAULT_PLAN_FORM);
   const [creatorInfo, setCreatorInfo] = useState(null);
 
-  // Load services and existing plan in edit mode
+  // Load services and existing plan in edit mode or clone mode
   useEffect(() => {
     async function init() {
       try {
@@ -45,6 +48,16 @@ export default function usePlanForm({ planId, isEditMode, currentUser, navigate 
           } else {
             setError("Plan not found in database.");
           }
+        } else if (isCloneMode && cloneFromId) {
+          const sourcePlan = await fetchPlanById(cloneFromId);
+          if (sourcePlan) {
+            const cloned = clonePlanForForm(sourcePlan);
+            setFormData(cloned.formData);
+            setClonedFromTitle(cloned.sourceTitle || sourcePlan.title || sourcePlan.name || "Plan");
+            setCreatorInfo(null);
+          } else {
+            setError("Source plan to clone not found in database.");
+          }
         }
       } catch (err) {
         console.error("Error loading plan form data:", err);
@@ -57,7 +70,7 @@ export default function usePlanForm({ planId, isEditMode, currentUser, navigate 
     if (currentUser) {
       init();
     }
-  }, [planId, isEditMode, currentUser]);
+  }, [planId, cloneFromId, isEditMode, isCloneMode, currentUser]);
 
   // Pricing calculations for each duration plan
   const variantCalculations = useMemo(() => {
@@ -587,14 +600,31 @@ export default function usePlanForm({ planId, isEditMode, currentUser, navigate 
       );
 
       // 2. Build complete Service payload with nested plans: []
-      const planPayload = buildPlanPayload({
-        ...formData,
-        title: serviceTitle,
-        name: serviceTitle,
-        images: resolvedImages,
+      const planPayload = buildPlanPayload(
+        {
+          ...formData,
+          title: serviceTitle,
+          name: serviceTitle,
+          images: resolvedImages,
+        },
+        { isEditMode }
+      );
+      await saveCustomPlan(planPayload, isEditMode ? planId : null, currentUser);
+
+      const successMessage = isCloneMode
+        ? `Plan "${serviceTitle}" cloned and created successfully.`
+        : isEditMode
+        ? `Plan "${serviceTitle}" updated successfully.`
+        : `Plan "${serviceTitle}" published successfully.`;
+
+      navigate("/admin/plans", {
+        state: {
+          feedback: {
+            type: "success",
+            text: successMessage,
+          },
+        },
       });
-      await saveCustomPlan(planPayload, planId || null, currentUser);
-      navigate("/admin/plans");
     } catch (err) {
       console.error("Error saving service & plans:", err);
       let userMsg = err.message || "Failed to save service details.";
@@ -605,9 +635,11 @@ export default function usePlanForm({ planId, isEditMode, currentUser, navigate 
     } finally {
       setSubmitting(false);
     }
-  }, [formData, variantCalculations, pendingFilesMap, uploadingMap, planId, currentUser, navigate]);
+  }, [formData, variantCalculations, pendingFilesMap, uploadingMap, planId, isEditMode, isCloneMode, currentUser, navigate]);
 
   return {
+    isCloneMode,
+    clonedFromTitle,
     formData,
     setFormData,
     services,

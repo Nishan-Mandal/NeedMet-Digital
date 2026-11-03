@@ -1,16 +1,18 @@
-import { useEffect } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
 import useAuth from "../../../../hooks/useAuth";
 import usePlanForm from "./hooks/usePlanForm";
 
 import PlanBasicDetailsSection from "./Sections/PlanBasicDetailsSection";
 import PlanImageGallerySection from "./Sections/PlanImageGallerySection";
 import PlanVariantsSection from "./Sections/PlanVariantsSection";
-import PlanDatesNotesSection from "./Sections/PlanDatesNotesSection";
+// import PlanDatesNotesSection from "./Sections/PlanDatesNotesSection";
 import ImagePreviewModal from "./Sections/ImagePreviewModal";
 
 export default function PlanForm() {
-  const { planId } = useParams();
+  const { planId, clonePlanId } = useParams();
+  const [searchParams] = useSearchParams();
+  const cloneFromId = clonePlanId || searchParams.get("cloneFrom") || searchParams.get("clone");
   const isEditMode = Boolean(planId);
   const { currentUser, isAdmin, isStaff, authLoading } = useAuth();
   const navigate = useNavigate();
@@ -22,7 +24,29 @@ export default function PlanForm() {
     }
   }, [currentUser, isAdmin, isStaff, authLoading, navigate]);
 
+  // Expand / collapse state for sections
+  // On phone (< 640px): keep closed except basic info and pricing section
+  // On desktop: all sections open by default
+  const [expandedSections, setExpandedSections] = useState(() => {
+    const isPhone = typeof window !== "undefined" && window.innerWidth < 640;
+    return {
+      basic: true, // open on phone & desktop
+      media: !isPhone, // closed on phone, open on desktop
+      pricing: true, // open on phone & desktop
+      dates: !isPhone, // closed on phone, open on desktop
+    };
+  });
+
+  const toggleSection = (key) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
   const {
+    isCloneMode,
+    clonedFromTitle,
     formData,
     setFormData,
     loading,
@@ -58,11 +82,11 @@ export default function PlanForm() {
     handleSubmit,
     handleApplyVariantBulkFeatures,
     handleRemoveVariantFeature,
-  } = usePlanForm({ planId, isEditMode, currentUser, navigate });
+  } = usePlanForm({ planId, cloneFromId, isEditMode, currentUser, navigate });
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
+      <div className="min-h-[calc(100dvh-4rem)] sm:min-h-[calc(100vh-4rem)] w-full flex items-center justify-center">
         <div className="flex flex-col items-center gap-2">
           <div className="h-8 w-8 animate-spin rounded-full border-3 border-[#266C51] border-t-transparent" />
           <p className="text-xs font-semibold text-text-secondary">
@@ -76,33 +100,42 @@ export default function PlanForm() {
   const durationPlanCount = (formData.plans || formData.variants || []).length;
 
   return (
-    <div className="min-h-screen bg-slate-50/50 py-4 sm:py-6 px-3 sm:px-6 lg:px-8 text-left">
+    <div className="min-h-screen bg-slate-50/50 py-3 sm:py-6 px-3 sm:px-6 lg:px-8 text-left">
       <div className="mx-auto max-w-6xl space-y-3.5 sm:space-y-4">
 
-        {/* COMPACT TOP BAR */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-200/60">
+        {/* TOP BAR */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pb-3 border-b border-gray-200/60">
           <div className="space-y-1">
             <Link
               to="/admin/plans"
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-500 hover:text-gray-900 transition"
+              className="inline-flex items-center gap-1.5 py-1 text-xs sm:text-[11px] font-semibold text-gray-500 hover:text-gray-900 transition"
             >
-              <span className="material-symbols-outlined text-sm">arrow_back</span>
+              <span className="material-symbols-outlined text-base sm:text-sm">arrow_back</span>
               Back to Services
             </Link>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight">
-                {isEditMode ? "Edit Service & Plans" : "Create New Service"}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap pt-0.5">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                {isCloneMode
+                  ? "Clone Service & Plans"
+                  : isEditMode
+                  ? "Edit Service & Plans"
+                  : "Create New Service"}
               </h1>
+              {isCloneMode && (
+                <span className="rounded-md bg-sky-100 border border-sky-300 px-2 py-0.5 sm:py-0.2 text-[11px] sm:text-[10px] font-bold text-sky-800">
+                  Clone Mode
+                </span>
+              )}
               {(formData.badge || formData.tag) && (
-                <span className="rounded-md bg-emerald-100 px-2 py-0.2 text-[10px] font-bold text-emerald-800">
+                <span className="rounded-md bg-emerald-100 px-2 py-0.5 sm:py-0.2 text-[11px] sm:text-[10px] font-bold text-emerald-800">
                   {formData.badge || formData.tag}
                 </span>
               )}
-              <span className="rounded-md bg-purple-50 text-purple-700 border border-purple-200/80 px-2 py-0.2 text-[10px] font-bold">
+              <span className="rounded-md bg-purple-50 text-purple-700 border border-purple-200/80 px-2 py-0.5 sm:py-0.2 text-[11px] sm:text-[10px] font-bold">
                 {durationPlanCount} Duration Plan{durationPlanCount === 1 ? "" : "s"}
               </span>
               <span
-                className={`rounded-md px-2 py-0.2 text-[10px] font-bold ${
+                className={`rounded-md px-2 py-0.5 sm:py-0.2 text-[11px] sm:text-[10px] font-bold ${
                   formData.isActive
                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
                     : "bg-amber-50 text-amber-700 border border-amber-200/80"
@@ -111,11 +144,33 @@ export default function PlanForm() {
                 {formData.isActive ? "Storefront Active" : "Draft / Inactive"}
               </span>
             </div>
-            <p className="text-[11px] text-gray-500">
+            <p className="text-xs sm:text-[11px] text-gray-500 leading-relaxed">
               Configure service details, duration tiers (1M, 3M, 6M, etc.), EMI schedules, and deliverables.
             </p>
           </div>
         </div>
+
+        {/* Clone Mode Informative Callout Banner */}
+        {isCloneMode && (
+          <div className="rounded-xl border border-sky-200 bg-sky-50/80 p-3 sm:p-3.5 text-xs text-sky-900 flex items-start sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-start sm:items-center gap-2.5">
+              <span className="material-symbols-outlined text-lg text-sky-600 shrink-0 mt-0.5 sm:mt-0">
+                content_copy
+              </span>
+              <div className="space-y-0.5">
+                <p className="font-bold text-sky-950 text-xs sm:text-xs">
+                  Cloning from: <span className="text-sky-800 font-semibold">{clonedFromTitle || "Existing Plan"}</span>
+                </p>
+                <p className="text-xs sm:text-[11px] text-sky-700 leading-relaxed">
+                  Prefilled with source plan configuration. Modifying details and saving will create a brand new plan with a unique ID without modifying the original.
+                </p>
+              </div>
+            </div>
+            <span className="rounded-md bg-sky-100 border border-sky-300 px-2 py-0.5 text-[10px] font-bold text-sky-800 uppercase tracking-wider shrink-0">
+              New Plan
+            </span>
+          </div>
+        )}
 
         {/* Global Error Banner */}
         {error && (
@@ -134,25 +189,46 @@ export default function PlanForm() {
           </div>
         )}
 
+        {/* Quick Expand All / Collapse All controls */}
+        <div className="flex items-center justify-end gap-2 text-xs text-gray-500">
+          <button
+            type="button"
+            onClick={() => setExpandedSections({ basic: true, media: true, pricing: true, dates: true })}
+            className="text-[11px] font-semibold text-gray-500 hover:text-[#266C51] transition cursor-pointer"
+          >
+            Expand All
+          </button>
+          <span className="text-gray-300">•</span>
+          <button
+            type="button"
+            onClick={() => setExpandedSections({ basic: false, media: false, pricing: false, dates: false })}
+            className="text-[11px] font-semibold text-gray-500 hover:text-[#266C51] transition cursor-pointer"
+          >
+            Collapse All
+          </button>
+        </div>
+
         {/* FORM */}
         <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4">
-          {/* 1. Identity (Col 3) + Availability (Col 2) */}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-3.5">
-            <div className="lg:col-span-3">
-              <PlanBasicDetailsSection
-                formData={formData}
-                onChange={handleChange}
-                onTagSelect={(badge) => setFormData((p) => ({ ...p, badge, tag: badge }))}
-              />
-            </div>
-            <div className="lg:col-span-2">
-              <PlanDatesNotesSection
-                formData={formData}
-                creatorInfo={creatorInfo}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
+          {/* 1. Identity & Basic Details */}
+          <PlanBasicDetailsSection
+            formData={formData}
+            onChange={handleChange}
+            onTagSelect={(badge) => setFormData((p) => ({ ...p, badge, tag: badge }))}
+            isExpanded={expandedSections.basic}
+            onToggleExpand={() => toggleSection("basic")}
+          />
+
+          {/* Availability & Dates Section - commented out per user request */}
+          {/*
+          <PlanDatesNotesSection
+            formData={formData}
+            creatorInfo={creatorInfo}
+            onChange={handleChange}
+            isExpanded={expandedSections.dates}
+            onToggleExpand={() => toggleSection("dates")}
+          />
+          */}
 
           {/* 2. Media & Image Gallery */}
           <PlanImageGallerySection
@@ -171,9 +247,11 @@ export default function PlanForm() {
             onImageError={(imgUrl) =>
               setImageErrorMap((p) => ({ ...p, [imgUrl]: true }))
             }
+            isExpanded={expandedSections.media}
+            onToggleExpand={() => toggleSection("media")}
           />
 
-          {/* 3. Duration Plans & Deliverables */}
+          {/* 3. Duration Plans & Pricing / Deliverables */}
           <PlanVariantsSection
             variants={formData.plans || formData.variants || []}
             selectedVariantIndex={formData.selectedVariantIndex}
@@ -189,35 +267,41 @@ export default function PlanForm() {
             onRemoveVariantFeature={handleRemoveVariantFeature}
             onApplyVariantBulkFeatures={handleApplyVariantBulkFeatures}
             onCopyFeatures={handleCopyFeatures}
+            isExpanded={expandedSections.pricing}
+            onToggleExpand={() => toggleSection("pricing")}
           />
 
-          {/* Compact Bottom Actions Bar */}
-          <div className="flex items-center justify-end gap-2.5 border-t border-gray-200/60 pt-3 pb-6">
+          {/* Bottom Actions Bar (Mobile touch-friendly) */}
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-2.5 border-t border-gray-200/60 pt-4 pb-8 sm:pb-6">
             <Link
               to="/admin/plans"
-              className="rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition"
+              className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl sm:rounded-lg border border-gray-200 bg-white px-5 py-2.5 sm:py-1.5 text-sm sm:text-xs font-semibold text-gray-700 hover:bg-gray-50 transition min-h-[44px] sm:min-h-0 cursor-pointer"
             >
               Cancel
             </Link>
             <button
               type="submit"
               disabled={submitting || isUploadingImages}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#266C51] px-5 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-[#1f5741] transition disabled:opacity-50 cursor-pointer"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl sm:rounded-lg bg-[#266C51] px-6 py-2.5 sm:py-1.5 text-sm sm:text-xs font-bold text-white shadow-sm hover:bg-[#1f5741] transition disabled:opacity-50 min-h-[44px] sm:min-h-0 cursor-pointer"
             >
               <span
-                className={`material-symbols-outlined text-base ${
+                className={`material-symbols-outlined text-lg sm:text-base ${
                   submitting || isUploadingImages ? "animate-spin" : ""
                 }`}
               >
                 {submitting || isUploadingImages ? "progress_activity" : "save"}
               </span>
-              {submitting
-                ? "Saving Service..."
-                : isUploadingImages
-                ? "Uploading Images..."
-                : isEditMode
-                ? "Update Service & Plans"
-                : "Publish Service & Plans"}
+              <span>
+                {submitting
+                  ? (isCloneMode ? "Creating Cloned Plan..." : "Saving Service...")
+                  : isUploadingImages
+                  ? "Uploading Images..."
+                  : isCloneMode
+                  ? "Create Cloned Plan"
+                  : isEditMode
+                  ? "Update Service & Plans"
+                  : "Publish Service & Plans"}
+              </span>
             </button>
           </div>
         </form>

@@ -89,7 +89,7 @@ const AdminRoute = () => {
   // Loading states
   if (authLoading || verifying) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-[calc(100dvh-4rem)] sm:min-h-[calc(100vh-4rem)] w-full flex flex-col items-center justify-center p-6 text-center">
         <div className="relative w-14 h-14 mb-4">
           <div className="w-14 h-14 border-4 border-[#266C51]/20 border-t-[#266C51] rounded-full animate-spin" />
           <div className="absolute inset-0 flex items-center justify-center">
@@ -114,7 +114,7 @@ const AdminRoute = () => {
   // Logged in but not an admin -> 403 Access Denied
   if (!isServerAdmin) {
     return (
-      <div className="min-h-[75vh] flex items-center justify-center px-4 py-12">
+      <div className="min-h-[calc(100dvh-4rem)] sm:min-h-[calc(100vh-4rem)] w-full flex items-center justify-center px-4 py-12">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-red-100 shadow-xl text-center">
           <div className="w-16 h-16 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-sm">
             <svg className="w-9 h-9" fill="none" viewBox="0 0 24 24" stroke="currentColor">

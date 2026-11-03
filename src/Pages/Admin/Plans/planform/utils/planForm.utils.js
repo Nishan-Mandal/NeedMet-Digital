@@ -4,7 +4,7 @@ import {
   formatPlanTitle,
   sanitizePlanVariant,
   isZeroOrEmptyDuration,
-} from "../../../../../utils/duration.utils";
+} from "../../../../../utils/duration.utils.js";
 
 export {
   formatPlanDuration,
@@ -89,6 +89,7 @@ export function createPlan(config = {}) {
     upfrontType: config.upfrontType || config.emiConfig?.upfrontType || "percentage", // "percentage" | "fixed"
     upfrontValue: Number(config.upfrontValue ?? config.emiConfig?.upfrontValue ?? 15),
     totalCycles: Number(config.totalCycles ?? config.emiConfig?.totalCycles ?? autoCycles),
+    billingDay: Number(config.billingDay ?? config.emiConfig?.billingDay ?? 9),
     firstDebitDays: Number(config.firstDebitDays ?? config.emiConfig?.firstDebitDays ?? 30),
     features: Array.isArray(config.features)
       ? config.features.map((f) => (typeof f === "string" ? { icon: "check_circle", title: f, desc: "" } : { icon: f.icon || "check_circle", title: f.title || f.name || "", desc: f.desc || f.description || "" }))
@@ -294,6 +295,7 @@ export function normalizeExistingPlan(existingRecord) {
       upfrontType: p.upfrontType || p.emiConfig?.upfrontType || "percentage",
       upfrontValue: p.upfrontValue !== undefined ? Number(p.upfrontValue) : (p.emiConfig?.upfrontValue !== undefined ? Number(p.emiConfig.upfrontValue) : 15),
       totalCycles: p.totalCycles !== undefined ? Number(p.totalCycles) : (p.emiConfig?.totalCycles !== undefined ? Number(p.emiConfig.totalCycles) : Math.max(Math.ceil((durationDays - 5) / 30), 1)),
+      billingDay: p.billingDay !== undefined ? Number(p.billingDay) : (Number(p.emiConfig?.billingDay) || 9),
       firstDebitDays: p.firstDebitDays !== undefined ? Number(p.firstDebitDays) : (Number(p.emiConfig?.firstDebitDays) || 30),
       features: featList,
       isActive: p.isActive !== undefined ? Boolean(p.isActive) : true,
@@ -350,6 +352,107 @@ export function normalizeExistingPlan(existingRecord) {
 }
 
 /**
+ * Clones an existing plan/service record for form prefill.
+ * Copies all configurable fields while stripping system IDs, runtime/transaction data, and creator metadata.
+ */
+export function clonePlanForForm(sourceRecord) {
+  if (!sourceRecord) return { formData: DEFAULT_PLAN_FORM, sourceTitle: "" };
+
+  const sourceTitle = (sourceRecord.title || sourceRecord.name || "").trim();
+  const clonedTitle = sourceTitle ? `${sourceTitle} (Copy)` : "Cloned Service";
+
+  // 1. Extract cover images safely
+  let images = [];
+  if (Array.isArray(sourceRecord.imageUrl)) {
+    images = sourceRecord.imageUrl.filter(Boolean);
+  } else if (Array.isArray(sourceRecord.images)) {
+    images = sourceRecord.images.filter(Boolean);
+  } else if (typeof sourceRecord.imageUrl === "string" && sourceRecord.imageUrl.trim()) {
+    images = [sourceRecord.imageUrl.trim()];
+  } else if (sourceRecord.image) {
+    images = [sourceRecord.image];
+  }
+
+  // 2. Extract and sanitize duration plans, generating new unique IDs for each
+  const rawPlans =
+    Array.isArray(sourceRecord.plans) && sourceRecord.plans.length > 0
+      ? sourceRecord.plans
+      : Array.isArray(sourceRecord.variants) && sourceRecord.variants.length > 0
+      ? sourceRecord.variants
+      : [sourceRecord];
+
+  const clonedPlans = rawPlans.map((p, idx) => {
+    let featList = [];
+    if (Array.isArray(p.features)) {
+      featList = p.features.map((f) => {
+        if (typeof f === "string") {
+          return { icon: "check_circle", title: f, desc: "" };
+        }
+        return {
+          icon: f.icon || "check_circle",
+          title: f.title || f.name || "Deliverable",
+          desc: f.desc || f.description || "",
+        };
+      });
+    }
+
+    const durationDays = getSafeDurationDays(p);
+    const duration = formatPlanDuration(p);
+    const name = formatPlanTitle(p) || `${duration} Plan`;
+    const newUniquePlanId = `plan-${Date.now()}-${idx + 1}-${Math.random().toString(36).substring(2, 6)}`;
+
+    return createPlan({
+      id: newUniquePlanId,
+      planId: newUniquePlanId,
+      name: name,
+      duration: duration,
+      durationDays: durationDays,
+      planType: p.planType && !isZeroOrEmptyDuration(p.planType) ? p.planType : duration,
+      tag: p.tag !== undefined ? p.tag : (idx === 0 ? "Popular" : idx === 1 ? "Best Value" : ""),
+      description: p.description || "",
+      price: Number(p.price) || 0,
+      discountAmount: Number(p.discountAmount) || 0,
+      paymentOptions: p.paymentOptions || "BOTH",
+      upfrontType: p.upfrontType || p.emiConfig?.upfrontType || "percentage",
+      upfrontValue: p.upfrontValue !== undefined ? Number(p.upfrontValue) : (p.emiConfig?.upfrontValue !== undefined ? Number(p.emiConfig.upfrontValue) : 15),
+      totalCycles: p.totalCycles !== undefined ? Number(p.totalCycles) : (p.emiConfig?.totalCycles !== undefined ? Number(p.emiConfig.totalCycles) : Math.max(Math.ceil((durationDays - 5) / 30), 1)),
+      billingDay: p.billingDay !== undefined ? Number(p.billingDay) : (Number(p.emiConfig?.billingDay) || 9),
+      firstDebitDays: p.firstDebitDays !== undefined ? Number(p.firstDebitDays) : (Number(p.emiConfig?.firstDebitDays) || 30),
+      features: featList,
+      isActive: p.isActive !== undefined ? Boolean(p.isActive) : true,
+    });
+  });
+
+  const badge = sourceRecord.badge || sourceRecord.tag || (clonedPlans[0]?.tag || "Popular");
+
+  const formData = {
+    // Identity fields cleared so it cannot overwrite original
+    id: "",
+    serviceId: "",
+    planId: "",
+    title: clonedTitle,
+    name: clonedTitle,
+    description: sourceRecord.description || "",
+    category: sourceRecord.category || "Digital Marketing",
+    badge: badge,
+    tag: badge,
+    images: [...images],
+    status: sourceRecord.status || "draft",
+    isActive: sourceRecord.isActive !== undefined ? Boolean(sourceRecord.isActive) : true,
+    notes: sourceRecord.notes || "",
+    availabilityStart: sourceRecord.datesConfig?.availabilityStart || "",
+    availabilityEnd: sourceRecord.datesConfig?.availabilityEnd || "",
+    serviceStart: sourceRecord.datesConfig?.serviceStart || "",
+    plans: clonedPlans.length > 0 ? clonedPlans : DEFAULT_PLAN_FORM.plans,
+    variants: clonedPlans.length > 0 ? clonedPlans : DEFAULT_PLAN_FORM.plans,
+    selectedPlanIndex: 0,
+    selectedVariantIndex: 0,
+  };
+
+  return { formData, sourceTitle };
+}
+
+/**
  * Parses raw newline-delimited text into feature objects.
  */
 export function parseBulkFeatures(bulkText) {
@@ -375,19 +478,26 @@ export function parseBulkFeatures(bulkText) {
  * Constructs the clean Firestore Service payload (with nested service.plans).
  * Retains both `plans` and `variants` for 100% backward and forward compatibility.
  */
-export function buildPlanPayload(formData) {
+export function buildPlanPayload(formData, { isEditMode = false } = {}) {
   const rawPlans = formData.plans || formData.variants || [];
   const serviceTitle = (formData.title || formData.name || "").trim();
-  const slugId =
-    (formData.id || formData.serviceId || formData.planId || "")
+
+  // In edit mode with an existing ID, preserve it. For new plans and clones, generate a unique ID with timestamp.
+  let slugId = "";
+  if (isEditMode && (formData.id || formData.serviceId || formData.planId)) {
+    slugId = (formData.id || formData.serviceId || formData.planId)
       .trim()
       .toLowerCase()
-      .replace(/[^a-z0-9_-]/g, "") ||
-    serviceTitle
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "") ||
-    `service-${Date.now().toString().slice(-6)}`;
+      .replace(/[^a-z0-9_-]/g, "");
+  }
+  if (!slugId) {
+    const baseSlug =
+      serviceTitle
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "") || "service";
+    slugId = `${baseSlug}-${Date.now().toString().slice(-6)}`;
+  }
 
   const plans = rawPlans.map((p, idx) => {
     const calc = calculateVariantPricing(p);
@@ -395,9 +505,9 @@ export function buildPlanPayload(formData) {
     const duration = formatPlanDuration(p);
     const name = formatPlanTitle(p) || `${duration} Plan`;
     const planId =
-      p.planId?.trim() ||
-      p.id ||
-      `${slugId}-plan-${idx + 1}-${durationDays}d`;
+      isEditMode && p.planId?.trim()
+        ? p.planId.trim()
+        : `${slugId}-plan-${idx + 1}-${durationDays}d`;
 
     return {
       id: planId,
@@ -417,6 +527,7 @@ export function buildPlanPayload(formData) {
       upfrontValue: Number(p.upfrontValue) || 15,
       upfrontAmount: calc.upfrontAmount,
       totalCycles: calc.cycles,
+      billingDay: Number(p.billingDay ?? p.emiConfig?.billingDay ?? 9),
       emiAmount: calc.emiAmount,
       remainingAmount: calc.remainingAmount,
       emiConfig: {
@@ -426,6 +537,7 @@ export function buildPlanPayload(formData) {
         upfrontAmount: calc.upfrontAmount,
         remainingAmount: calc.remainingAmount,
         totalCycles: calc.cycles,
+        billingDay: Number(p.billingDay ?? p.emiConfig?.billingDay ?? 9),
         emiAmount: calc.emiAmount,
         billingInterval: "monthly",
         firstDebitDays: Number(p.firstDebitDays) || 30,
@@ -492,6 +604,7 @@ export function buildPlanPayload(formData) {
     durationDays: primaryPlan.durationDays || 92,
     planType: primaryPlan.planType || "3 Months",
     paymentOptions: rootPaymentOptions,
+    billingDay: Number(primaryPlan.billingDay ?? primaryCalc.billingDay ?? 9),
     emiConfig: {
       enabled: anyEmi,
       upfrontType: primaryCalc.upfrontType || "percentage",
@@ -499,6 +612,7 @@ export function buildPlanPayload(formData) {
       upfrontAmount: primaryCalc.upfrontAmount || 0,
       remainingAmount: primaryCalc.remainingAmount || 0,
       totalCycles: primaryCalc.totalCycles || 1,
+      billingDay: Number(primaryPlan.billingDay ?? primaryCalc.billingDay ?? 9),
       emiAmount: primaryCalc.emiAmount || 0,
       billingInterval: "monthly",
       firstDebitDays: 30,

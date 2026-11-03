@@ -36,6 +36,7 @@ function App() {
                 <Route path="/admin/plans" element={<AdminPlansDashboard />} />
                 <Route path="/admin/plans/new" element={<PlanForm />} />
                 <Route path="/admin/plans/edit/:planId" element={<PlanForm />} />
+                <Route path="/admin/plans/clone/:clonePlanId" element={<PlanForm />} />
               </Route>
               <Route path="/privacy-policy" element={<PolicyPage policyKey="privacy-policy" pdfUrl="/policies/Privacy_Policy_NeedMet_Digital.pdf" />} />
               <Route path="/terms-conditions" element={<PolicyPage policyKey="terms-conditions" pdfUrl="/policies/Terms_Conditions_NeedMet_Digital.pdf" />} />
