@@ -5,13 +5,18 @@ import { auth } from "../../../config/firebase";
 import useAuth from "../../../hooks/useAuth";
 
 export default function ProfileHeader() {
-  const { currentUser, userProfile, isAdmin, isStaff } = useAuth();
+  const { currentUser, userProfile, isAdmin, isStaff, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
-      navigate("/");
+      // Instantly redirect to login without awaiting network roundtrip
+      navigate("/login", { replace: true });
+      if (logout) {
+        await logout();
+      } else {
+        await signOut(auth);
+      }
     } catch (err) {
       console.error("Error logging out:", err);
     }

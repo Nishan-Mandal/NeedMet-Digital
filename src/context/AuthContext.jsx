@@ -1,5 +1,5 @@
-import { createContext, useState, useEffect } from "react";
-import { onAuthStateChanged } from "firebase/auth";
+import { createContext, useState, useEffect, useCallback } from "react";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../config/firebase";
 
@@ -26,9 +26,11 @@ export const AuthProvider = ({ children }) => {
           const userData = userDocSnap.exists() ? userDocSnap.data() : null;
           setUserProfile(userData);
 
-          const effectiveRole = claimRole || userData?.role;
-          setIsAdmin(effectiveRole === "admin");
-          setIsStaff(effectiveRole === "admin" || effectiveRole === "sales");
+          const rawRole = claimRole || userData?.role;
+          const normalizedRole = String(rawRole || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+          const isUserAdmin = normalizedRole === "admin" || normalizedRole === "salesadmin" || normalizedRole === "superadmin" || userData?.isAdmin === true || userData?.isSalesAdmin === true;
+          setIsAdmin(isUserAdmin);
+          setIsStaff(isUserAdmin || normalizedRole === "sales");
         } catch (err) {
           console.warn("Could not resolve user role:", err);
           setIsAdmin(false);
@@ -45,6 +47,21 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
+  const logout = useCallback(async () => {
+    // 1. Immediately reset state in memory so UI and routing update with 0ms delay
+    setCurrentUser(null);
+    setUserProfile(null);
+    setIsAdmin(false);
+    setIsStaff(false);
+
+    // 2. Invalidate Firebase session in the background
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.warn("Firebase signOut error:", err);
+    }
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -53,6 +70,7 @@ export const AuthProvider = ({ children }) => {
         isAdmin,
         isStaff,
         authLoading,
+        logout,
       }}
     >
       {children}

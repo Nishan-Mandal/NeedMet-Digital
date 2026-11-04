@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { httpsCallable } from "firebase/functions";
 import { doc, getDoc } from "firebase/firestore";
 import { signOut } from "firebase/auth";
-import { auth, db, functions } from "../../config/firebase";
+import { auth, db } from "../../config/firebase";
 import useAuth from "../../hooks/useAuth";
 
 const AdminRoute = () => {
-  const { currentUser, authLoading } = useAuth();
+  const { currentUser, userProfile, isAdmin, authLoading, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -31,47 +30,52 @@ const AdminRoute = () => {
       setErrorMsg("");
 
       try {
-        // 1. Primary: Authoritative Server-Side Cloud Function Verification
-        const verifyAdminCallable = httpsCallable(functions, "verifyAdmin");
-        const result = await verifyAdminCallable();
+        const isRoleAdmin = (r) => {
+          const role = String(r || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+          return role === "admin" || role === "salesadmin" || role === "superadmin";
+        };
 
-        if (result?.data?.isAdmin && isMounted) {
+        // 1. Fast Path: AuthContext already validated Admin or SalesAdmin
+        if (isAdmin) {
+          if (isMounted) {
+            setIsServerAdmin(true);
+            setVerifying(false);
+          }
+          return;
+        }
+
+        // 2. Direct Token Claims check against Firebase Auth backend
+        const freshToken = await currentUser.getIdTokenResult(true);
+        const hasAdminClaim = isRoleAdmin(freshToken?.claims?.role) || freshToken?.claims?.admin === true || freshToken?.claims?.salesadmin === true;
+
+        if (hasAdminClaim && isMounted) {
           setIsServerAdmin(true);
           setVerifying(false);
           return;
         }
-      } catch (cloudFnErr) {
-        console.warn("Cloud function verifyAdmin call error, falling back to secure token check:", cloudFnErr.message);
 
-        // 2. Authoritative Fallback: Force refresh token directly against Firebase Auth backend
-        try {
-          const freshToken = await currentUser.getIdTokenResult(true);
-          const hasAdminClaim = freshToken?.claims?.role === "admin" || freshToken?.claims?.admin === true;
-
-          if (hasAdminClaim && isMounted) {
+        // 3. Direct Firestore users/{uid} document verification
+        const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+        if (userSnap.exists() && isMounted) {
+          const userData = userSnap.data();
+          const isAdminRole = isRoleAdmin(userData.role) || userData.isAdmin === true || userData.isSalesAdmin === true;
+          if (isAdminRole) {
             setIsServerAdmin(true);
             setVerifying(false);
             return;
           }
-
-          // 3. Fallback: Check Firestore users/{uid} server document directly
-          const userSnap = await getDoc(doc(db, "users", currentUser.uid));
-          if (userSnap.exists() && isMounted) {
-            const userData = userSnap.data();
-            const isAdminRole = userData.role === "admin" || userData.isAdmin === true;
-            if (isAdminRole) {
-              setIsServerAdmin(true);
-              setVerifying(false);
-              return;
-            }
-          }
-        } catch (tokenErr) {
-          console.error("Server token verification error:", tokenErr);
         }
 
         if (isMounted) {
           setIsServerAdmin(false);
-          setErrorMsg(cloudFnErr.message || "Administrator clearance required.");
+          setErrorMsg("Administrator or SalesAdmin clearance required.");
+          setVerifying(false);
+        }
+      } catch (err) {
+        console.error("Admin verification error:", err);
+        if (isMounted) {
+          setIsServerAdmin(false);
+          setErrorMsg(err.message || "Failed to verify admin status.");
           setVerifying(false);
         }
       }
@@ -84,7 +88,7 @@ const AdminRoute = () => {
     return () => {
       isMounted = false;
     };
-  }, [currentUser, authLoading]);
+  }, [currentUser, authLoading, isAdmin]);
 
   // Loading states
   if (authLoading || verifying) {
@@ -144,8 +148,12 @@ const AdminRoute = () => {
             </button>
             <button
               onClick={async () => {
-                await signOut(auth);
-                navigate("/login", { state: { from: location } });
+                navigate("/login", { replace: true, state: { from: location } });
+                if (logout) {
+                  await logout();
+                } else {
+                  await signOut(auth);
+                }
               }}
               className="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl text-sm transition-all"
             >

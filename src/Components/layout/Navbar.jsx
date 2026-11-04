@@ -12,7 +12,7 @@ export default function Navbar() {
 
     const navigate = useNavigate();
     const location = useLocation();
-    const { currentUser, isAdmin, isStaff } = useAuth();
+    const { currentUser, isAdmin, isStaff, logout } = useAuth();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
 
@@ -33,8 +33,13 @@ export default function Navbar() {
 
     const handleLogout = async () => {
         setDropdownOpen(false);
-        await signOut(auth);
-        navigate("/");
+        // Instantly redirect to login so there's 0 delay for the user
+        navigate("/login", { replace: true });
+        if (logout) {
+            await logout();
+        } else {
+            await signOut(auth);
+        }
     };
 
     return (

@@ -16,7 +16,8 @@ export const verifyPaymentService = async (razorpay_order_id, razorpay_payment_i
 
 export const verifyMandateService = async ({ purchaseId, subscriptionId, paymentId, signature }) => {
   try {
-    const response = await verifyMandateCallable({
+    const response = await verifyPaymentCallable({
+      action: "VERIFY_MANDATE",
       purchaseId,
       subscriptionId,
       paymentId: paymentId || null,
@@ -24,20 +25,8 @@ export const verifyMandateService = async ({ purchaseId, subscriptionId, payment
     });
     return response.data;
   } catch (error) {
-    console.warn("verifyMandateCallable error, falling back to public verifyPayment:", error);
-    try {
-      const fallbackResponse = await verifyPaymentCallable({
-        action: "VERIFY_MANDATE",
-        purchaseId,
-        subscriptionId,
-        paymentId: paymentId || null,
-        signature: signature || null,
-      });
-      return fallbackResponse.data;
-    } catch (fallbackError) {
-      console.error("Error verifying mandate via fallback:", fallbackError);
-      throw fallbackError;
-    }
+    console.error("Error verifying mandate:", error);
+    throw error;
   }
 };
 

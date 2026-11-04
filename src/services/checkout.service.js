@@ -1,7 +1,7 @@
 import {
   createOrderCallable,
   createSubscriptionCallable,
-  verifyMandateCallable,
+  verifyPaymentCallable,
 } from "./cloudFunctions";
 
 export const createOrderService = async (serviceId, planId, paymentMethod, couponCode) => {
@@ -39,7 +39,8 @@ export const createSubscriptionService = async (paramsOrServiceId, planId, coupo
  */
 export const verifyMandateService = async ({ purchaseId, subscriptionId, paymentId, signature }) => {
   try {
-    const response = await verifyMandateCallable({
+    const response = await verifyPaymentCallable({
+      action: "VERIFY_MANDATE",
       purchaseId,
       subscriptionId,
       paymentId: paymentId || null,
