@@ -95,6 +95,23 @@ export function reconcileUserPurchases(purchasesData = [], plansData = [], servi
 
   // 1. Process authoritative purchases collection records first
   purchasesData.forEach((purchase, idx) => {
+    // Ignore unfulfilled / abandoned checkout orders where payment was never captured
+    const upfrontStatus = purchase.upfrontPayment?.status;
+    const isPaidOrActive =
+      purchase.status === "active" ||
+      purchase.status === "completed" ||
+      purchase.planAccessStatus === "active" ||
+      purchase.planAccessStatus === "completed" ||
+      upfrontStatus === "captured" ||
+      upfrontStatus === "success" ||
+      Boolean(purchase.primaryPaymentId) ||
+      Boolean(purchase.paymentId) ||
+      Boolean(purchase.upfrontPayment?.paymentId);
+
+    if (!isPaidOrActive || purchase.status === "cancelled" || purchase.planAccessStatus === "cancelled" || purchase.status === "failed") {
+      return;
+    }
+
     const ids = extractIds(purchase);
     let canonicalKey = ids.find((id) => knownIdToKey.has(id));
     if (canonicalKey) {

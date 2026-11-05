@@ -23,7 +23,13 @@ export default function PlanFinancialOverview({ purchase }) {
   const financials = calculateAuthoritativeFinancials(purchase);
   const { isEmi, planTotal, upfrontPaid, verifiedPaid, remainingBalance, paidPercent } = financials;
 
-  const durationDays = deriveDurationDays(purchase);
+  const isFullPaid =
+    !isEmi &&
+    (financials.isFullPaidCompleted ||
+      financials.isUpfrontPaid ||
+      purchase.status === "completed" ||
+      purchase.status === "active" ||
+      purchase.planAccessStatus === "active");
   const rawCycles = Number(purchase.pricing?.totalCycles ?? purchase.mandate?.totalCount ?? 0);
   const totalCycles = rawCycles > 0 ? rawCycles : (durationDays > 30 ? Math.round(durationDays / 30) : 3);
   const emiAmount = Number(
@@ -59,10 +65,22 @@ export default function PlanFinancialOverview({ purchase }) {
           </div>
         </div>
 
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 font-heading text-xs font-bold text-emerald-800">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          {isEmi ? `${paidPercent}% Settled` : "Paid in Full"}
-        </span>
+        {isEmi ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 font-heading text-xs font-bold text-emerald-800">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            {paidPercent}% Settled
+          </span>
+        ) : isFullPaid ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 font-heading text-xs font-bold text-emerald-800">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            Paid in Full
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200/80 px-2.5 py-1 font-heading text-xs font-bold text-amber-800">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            Payment Incomplete
+          </span>
+        )}
       </div>
 
       {/* KPI Highlight Grid & Progress Bar (ONLY FOR EMI PLANS) */}
@@ -118,8 +136,8 @@ export default function PlanFinancialOverview({ purchase }) {
             </div>
           </div>
         </>
-      ) : (
-        /* Full Payment Summary Card */
+      ) : isFullPaid ? (
+        /* Full Payment Summary Card (Settled) */
         <div className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50/70 to-emerald-50/30 p-4 sm:p-5 flex items-center justify-between gap-4">
           <div className="space-y-1">
             <span className="text-[11px] font-semibold text-emerald-800 uppercase tracking-wider block">
@@ -138,6 +156,28 @@ export default function PlanFinancialOverview({ purchase }) {
 
           <div className="hidden sm:flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-[#0F5C3E]">
             <span className="material-symbols-outlined text-2xl">check_circle</span>
+          </div>
+        </div>
+      ) : (
+        /* Full Payment Summary Card (Pending / Unpaid) */
+        <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50/70 to-amber-50/30 p-4 sm:p-5 flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <span className="text-[11px] font-semibold text-amber-900 uppercase tracking-wider block">
+              Payment Status
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="font-heading font-extrabold text-2xl sm:text-3xl text-amber-950 tracking-tight tabular-nums">
+                {formatCurrency(verifiedPaid)}
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-full">
+                <span className="material-symbols-outlined text-sm">pending</span>
+                Payment Incomplete / Cancelled
+              </span>
+            </div>
+          </div>
+
+          <div className="hidden sm:flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-800">
+            <span className="material-symbols-outlined text-2xl">hourglass_top</span>
           </div>
         </div>
       )}

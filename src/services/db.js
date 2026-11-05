@@ -25,6 +25,10 @@ export const fetchServices = async () => {
         const services = [];
         querySnapshot.forEach((doc) => {
             const data = doc.data();
+            // Filter out archived or inactive services from storefront
+            if (data.status === "archived" || data.isActive === false || data.isArchived === true) {
+                return;
+            }
             const rawPlans = data.plans || data.variants || [];
             const cleanPlans = rawPlans.map((p, idx) => sanitizePlanVariant(p, `Option ${idx + 1}`));
             services.push({
@@ -251,6 +255,19 @@ export const recordPurchase = async (purchaseData) => {
 };
 
 /**
+ * Deletes a draft/pending unfulfilled purchase document from purchases collection
+ * when a user cancels payment or closes checkout.
+ */
+export const deletePendingPurchase = async (purchaseId) => {
+    if (!purchaseId) return;
+    try {
+        await deleteDoc(doc(db, "purchases", String(purchaseId)));
+    } catch (e) {
+        console.warn("Could not delete pending purchase:", e);
+    }
+};
+
+/**
  * Fetches all purchases made by a specific user from authoritative 'purchases' collection.
  * - Single collection query with in-memory 60s session cache (0 reads on repeat).
  * - Performs targeted metadata hydration ONLY for missing service details (0 catalog overfetch).
@@ -279,7 +296,22 @@ export const fetchUserPurchases = async (userId, { forceRefresh = false } = {}) 
         );
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((docSnap) => {
-            purchases.push({ id: docSnap.id, purchaseId: docSnap.id, ...docSnap.data() });
+            const data = docSnap.data();
+            const upfrontStatus = data.upfrontPayment?.status;
+            const isPaidOrActive =
+                data.status === "active" ||
+                data.status === "completed" ||
+                data.planAccessStatus === "active" ||
+                data.planAccessStatus === "completed" ||
+                upfrontStatus === "captured" ||
+                upfrontStatus === "success" ||
+                Boolean(data.primaryPaymentId) ||
+                Boolean(data.paymentId) ||
+                Boolean(data.upfrontPayment?.paymentId);
+
+            if (isPaidOrActive && data.status !== "cancelled" && data.planAccessStatus !== "cancelled" && data.status !== "failed") {
+                purchases.push({ id: docSnap.id, purchaseId: docSnap.id, ...data });
+            }
         });
     } catch {
         // Fallback to server-side callable if client-side security rules restrict query

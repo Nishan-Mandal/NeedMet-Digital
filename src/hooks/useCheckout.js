@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createOrderService, createSubscriptionService } from "../services/checkout.service";
-import { clearUserPurchasesCache, recordPurchase } from "../services/db";
+import { clearUserPurchasesCache, recordPurchase, deletePendingPurchase } from "../services/db";
 import usePayment from "./usePayment";
 import useAuth from "./useAuth";
 
@@ -26,6 +26,7 @@ export default function useCheckout() {
     setCheckoutLoading(true);
     setCheckoutError(null);
     setCheckoutStep("initiating");
+    let createdOrderId = null;
 
     try {
       // 1. Handle CASH payment
@@ -41,6 +42,7 @@ export default function useCheckout() {
       if (paymentMethod === "FULL" || paymentMethod === "BANKING") {
         const orderResponse = await createOrderService(serviceId, planId, paymentMethod, couponCode);
         const { razorpayOrderId, amount, currency, razorpayKeyId } = orderResponse;
+        createdOrderId = razorpayOrderId;
 
         if (!razorpayKeyId) throw new Error("Missing Razorpay Key ID");
 
@@ -125,6 +127,7 @@ export default function useCheckout() {
         // Step 1A: Create order for 15% upfront down payment
         const orderResponse = await createOrderService(serviceId, planId, "EMI", couponCode);
         const { razorpayOrderId, amount, currency, razorpayKeyId } = orderResponse;
+        createdOrderId = razorpayOrderId;
 
         if (!razorpayKeyId) throw new Error("Missing Razorpay Key ID");
 
@@ -225,6 +228,10 @@ export default function useCheckout() {
 
       throw new Error(`Unsupported payment method: ${paymentMethod}`);
     } catch (err) {
+      if (createdOrderId) {
+        deletePendingPurchase(createdOrderId);
+        clearUserPurchasesCache(currentUser?.uid);
+      }
       const errorMessage = err.message || "Checkout process failed";
       setCheckoutError(errorMessage);
       console.error("Checkout flow error:", err);
