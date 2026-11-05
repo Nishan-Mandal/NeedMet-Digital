@@ -6,6 +6,7 @@
     "rules": "storage.rules"
   },
   "hosting": {
+    "site": "needmet-digital",
     "public": "dist",
     "ignore": [
       "firebase.json",
