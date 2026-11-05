@@ -1,71 +1,88 @@
-import Container from "../layout/Container";
-
-import CategoryTabs from "./CategoryTabs";
 import SearchBar from "./SearchBar";
+import CategoryTabs from "./CategoryTabs";
 import SortButton from "./SortButton";
 
-const SORT_LABELS = {
-    default: "Sort",
-    "price-asc": "Price: Low to High",
-    "price-desc": "Price: High to Low",
-    title: "Name: A to Z",
-};
-
 export default function FilterBar({
-    categories,
-    activeCategory,
-    onCategoryChange,
-    searchQuery,
-    onSearchChange,
-    onSort,
-    sortBy = "default"
+  categories = [],
+  activeCategory = "All",
+  onCategoryChange,
+  searchQuery = "",
+  onSearchChange,
+  onSort,
+  sortBy = "default",
+  totalCount,
 }) {
-console.log (categories)
-    return (
+  const isFiltered = activeCategory !== "All" || Boolean(searchQuery?.trim());
 
-        <section className=" border-b border-border/20 bg-background-secondary/80 px-4 py-4 backdrop-blur-md">
-            {/* Desktop */}
-            <div className="hidden items-center justify-between gap-4 md:flex">
-                {/* <CategoryTabs
-                    categories={categories}
-                    activeCategory={activeCategory}
-                    onCategoryChange={onCategoryChange}
-                /> */}
+  return (
+    <section className="space-y-3.5 py-4 scroll-mt-28">
+      {/* Top Row: Responsive Search Bar & Sort Dropdown */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
+        <div className="flex-1 max-w-xl">
+          <SearchBar
+            value={searchQuery}
+            onChange={onSearchChange}
+            placeholder="Search services (e.g. SEO, Website, Marketing)..."
+            totalCount={totalCount}
+          />
+        </div>
 
-                <SearchBar
-                    value={searchQuery}
-                    onChange={onSearchChange}
-                    className="max-w-md flex-1"
-                />
+        {onSort && (
+          <div className="shrink-0 self-end sm:self-auto">
+            <SortButton value={sortBy} onChange={onSort} />
+          </div>
+        )}
+      </div>
 
-                {/* <SortButton
-                    value={sortBy}
-                    onChange={onSort}
-                /> */}
-            </div>
+      {/* Category Pills Strip */}
+      {categories && categories.length > 0 && (
+        <div className="pt-0.5">
+          <CategoryTabs
+            categories={categories}
+            activeCategory={activeCategory}
+            onCategoryChange={onCategoryChange}
+          />
+        </div>
+      )}
 
-            {/* Mobile */}
-            <div className="space-y-3 md:hidden">
-                {/* <SearchBar
-                    value={searchQuery}
-                    onChange={onSearchChange}
-                /> */}
+      {/* Active Search & Filter Status Feedback Bar */}
+      {isFiltered && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50/60 border border-emerald-100/80 px-3 py-1.5 text-xs text-gray-700 animate-in fade-in duration-150">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="material-symbols-outlined text-sm text-[#0f5c3e]">
+              filter_list
+            </span>
+            <span>
+              Showing {typeof totalCount === "number" ? <strong className="text-gray-900">{totalCount}</strong> : ""}{" "}
+              {totalCount === 1 ? "service" : "services"}
+            </span>
 
-                <div className="grid grid-cols-2 gap-3">
-                    <CategoryTabs
-                        categories={categories}
-                        activeCategory={activeCategory}
-                        onCategoryChange={onCategoryChange}
-                        mobile
-                    />
+            {searchQuery?.trim() && (
+              <span>
+                matching <strong className="text-[#0f5c3e]">"{searchQuery.trim()}"</strong>
+              </span>
+            )}
 
-                    {/* <SortButton
-                        value={sortBy}
-                        onChange={onSort}
-                    /> */}
-                </div>
-            </div>
-        </section>
+            {activeCategory !== "All" && (
+              <span>
+                in <strong className="text-[#0f5c3e]">{activeCategory}</strong>
+              </span>
+            )}
+          </div>
 
-    );
+          <button
+            type="button"
+            onClick={() => {
+              if (onSearchChange) onSearchChange("");
+              if (onCategoryChange) onCategoryChange("All");
+            }}
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 hover:underline cursor-pointer"
+          >
+            <span>Reset</span>
+            <span className="material-symbols-outlined text-xs">close</span>
+          </button>
+        </div>
+      )}
+    </section>
+  );
 }

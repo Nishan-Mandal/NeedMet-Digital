@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { RecaptchaVerifier, signInWithPhoneNumber, updateProfile, signOut } from "firebase/auth";
 import { auth, db } from "../../config/firebase";
@@ -14,6 +14,9 @@ export default function Signup() {
   const [error, setError] = useState("");
   const [confirmationResult, setConfirmationResult] = useState(null);
   
+  const recaptchaVerifierRef = useRef(null);
+  const recaptchaWidgetIdRef = useRef(null);
+
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser } = useAuth();
@@ -26,18 +29,54 @@ export default function Signup() {
     }
   }, [currentUser, navigate, location]);
 
-  useEffect(() => {
-    const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-      size: "invisible",
-      callback: () => {}
-    });
+  // Helper to initialize or reuse RecaptchaVerifier
+  const initRecaptcha = async () => {
+    if (recaptchaVerifierRef.current) {
+      return recaptchaVerifierRef.current;
+    }
 
-    window.recaptchaVerifier = verifier;
+    const container = document.getElementById("recaptcha-container");
+    if (!container) return null;
+
+    try {
+      const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+        size: "normal",
+        callback: () => {
+          setError("");
+        },
+        "expired-callback": () => {
+          setError("reCAPTCHA expired. Please check the box again.");
+        },
+      });
+
+      const widgetId = await verifier.render();
+      recaptchaWidgetIdRef.current = widgetId;
+      recaptchaVerifierRef.current = verifier;
+      return verifier;
+    } catch (err) {
+      console.warn("reCAPTCHA initialization notice:", err);
+      return null;
+    }
+  };
+
+  // Mount RecaptchaVerifier on initial load
+  useEffect(() => {
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      if (isMounted) {
+        initRecaptcha();
+      }
+    }, 150);
 
     return () => {
-      if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear();
-        window.recaptchaVerifier = null;
+      isMounted = false;
+      clearTimeout(timer);
+      if (recaptchaVerifierRef.current) {
+        try {
+          recaptchaVerifierRef.current.clear();
+        } catch (e) {}
+        recaptchaVerifierRef.current = null;
+        recaptchaWidgetIdRef.current = null;
       }
     };
   }, []);
@@ -76,7 +115,7 @@ export default function Signup() {
       }
 
       if (userExists) {
-        setError("User already exists. Please go to Login.");
+        setError("User already exists with this phone number. Please go to Login.");
         setLoading(false);
         return;
       }
@@ -85,13 +124,42 @@ export default function Signup() {
     }
 
     try {
-      const appVerifier = window.recaptchaVerifier;
+      let appVerifier = recaptchaVerifierRef.current;
+      if (!appVerifier) {
+        appVerifier = await initRecaptcha();
+      }
+      if (!appVerifier) {
+        setError("reCAPTCHA container is not ready. Please refresh the page.");
+        setLoading(false);
+        return;
+      }
+
       const confirmation = await signInWithPhoneNumber(auth, formattedNumber, appVerifier);
       setConfirmationResult(confirmation);
       setOtpSent(true);
     } catch (err) {
-      console.error(err);
-      setError(err.message || "Failed to send OTP");
+      console.error("Phone Auth Error:", err);
+
+      // Reset reCAPTCHA on error so the user can re-check without full page reload
+      if (window.grecaptcha && recaptchaWidgetIdRef.current !== null) {
+        try {
+          window.grecaptcha.reset(recaptchaWidgetIdRef.current);
+        } catch (resetErr) {
+          console.warn("Could not reset grecaptcha widget:", resetErr);
+        }
+      }
+
+      if (err.code === "auth/invalid-app-credential") {
+        setError(
+          "App verification failed (auth/invalid-app-credential). Please ensure the 'I'm not a robot' box is checked, and verify Fraud Prevention / SMS settings in Firebase Console."
+        );
+      } else if (err.code === "auth/too-many-requests") {
+        setError("Too many requests sent. Please try again later or test with a registered test phone number.");
+      } else if (err.code === "auth/quota-exceeded") {
+        setError("SMS quota exceeded. Please configure test phone numbers in Firebase Console.");
+      } else {
+        setError(err.message || "Failed to send OTP");
+      }
     } finally {
       setLoading(false);
     }
@@ -111,16 +179,21 @@ export default function Signup() {
       const result = await confirmationResult.confirm(otp);
       
       if (result.user) {
-        // Definitive check if user already exists
+        // Definitive check if user document already exists for this UID
         const usersRef = collection(db, "users");
         const userDocRef = doc(usersRef, result.user.uid);
         const userDocSnap = await getDoc(userDocRef);
         let userExists = userDocSnap.exists();
 
+        // Optional phone query check wrapped in try/catch to avoid Firestore client security rules denial
         if (!userExists && result.user.phoneNumber) {
-          const qPhone = query(usersRef, where("phone", "==", result.user.phoneNumber));
-          const qSnap = await getDocs(qPhone);
-          userExists = !qSnap.empty;
+          try {
+            const qPhone = query(usersRef, where("phone", "==", result.user.phoneNumber));
+            const qSnap = await getDocs(qPhone);
+            userExists = !qSnap.empty;
+          } catch (ruleErr) {
+            console.warn("Client-side phone query restricted by Firestore security rules, relying on UID existence:", ruleErr);
+          }
         }
 
         if (userExists) {
@@ -152,8 +225,16 @@ export default function Signup() {
       const from = location.state?.from || "/";
       navigate(from, { replace: true });
     } catch (err) {
-      console.error(err);
-      setError(err.message === "User already exists. Please go to Login." ? err.message : "Invalid OTP. Please try again.");
+      console.error("Signup OTP verification error:", err);
+      if (err.message === "User already exists. Please go to Login.") {
+        setError(err.message);
+      } else if (err.code === "auth/invalid-verification-code") {
+        setError("Invalid OTP. Please check the code and try again.");
+      } else if (err.code === "auth/code-expired") {
+        setError("OTP has expired. Please request a new code.");
+      } else {
+        setError(err.message || "Signup failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -181,8 +262,11 @@ export default function Signup() {
             </p>
           </div>
 
-          {/* Invisible recaptcha container */}
-          <div id="recaptcha-container"></div>
+          {/* Recaptcha container */}
+          <div 
+            id="recaptcha-container" 
+            className={`flex justify-center my-3 min-h-[78px] ${otpSent ? "hidden" : ""}`}
+          ></div>
 
           {!otpSent ? (
             <form onSubmit={handleSendOtp} className="mt-8 space-y-6">
@@ -284,6 +368,11 @@ export default function Signup() {
                   onClick={() => {
                     setOtpSent(false);
                     setError("");
+                    if (window.grecaptcha && recaptchaWidgetIdRef.current !== null) {
+                      try {
+                        window.grecaptcha.reset(recaptchaWidgetIdRef.current);
+                      } catch (e) {}
+                    }
                   }}
                   className="text-sm font-semibold text-[#0f5c3e] hover:text-[#1a8a5a] transition-colors font-heading text-center"
                 >

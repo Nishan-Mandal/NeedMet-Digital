@@ -1,4 +1,4 @@
-import { formatCurrency } from "../../../utils/Formatters";
+import { formatCurrency, formatPlanDuration } from "../../../utils/Formatters";
 
 export default function PlanCard({
   title,
@@ -29,7 +29,7 @@ export default function PlanCard({
           ₹{basePrice ? basePrice.toLocaleString() : 0}
         </span>
         <span className="pb-1 text-sm text-text-secondary">
-          / {plan.duration || "total"}
+          / {formatPlanDuration(plan)}
         </span>
       </div>
 

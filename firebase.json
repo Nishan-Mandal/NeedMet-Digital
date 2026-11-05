@@ -1,7 +1,12 @@
 {
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "hosting": {
     "public": "dist",
-    "site": "needmet-digital",
     "ignore": [
       "firebase.json",
       "**/.*",

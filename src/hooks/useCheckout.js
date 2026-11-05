@@ -1,68 +1,229 @@
 import { useState } from "react";
 import { createOrderService, createSubscriptionService } from "../services/checkout.service";
+import { clearUserPurchasesCache, recordPurchase } from "../services/db";
 import usePayment from "./usePayment";
+import useAuth from "./useAuth";
 
 export default function useCheckout() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutStep, setCheckoutStep] = useState(null); // "initiating" | "upfront_payment" | "verifying_upfront" | "setting_up_mandate" | "authorizing_mandate" | "verifying_mandate" | "mandate_pending"
   const [checkoutError, setCheckoutError] = useState(null);
+  const [pendingMandate, setPendingMandate] = useState(null); // { purchaseId, subscriptionId, razorpayKeyId }
 
-  const { initiateRazorpayCheckout, verifyPayment } = usePayment();
+  const { currentUser } = useAuth();
+  const { initiateRazorpayCheckout, verifyPayment, verifyMandate } = usePayment();
 
-  const handleCheckoutFlow = async ({ serviceId, planId, paymentMethod, couponCode, onSuccess, onFailure, onCashPayment }) => {
+  const handleCheckoutFlow = async ({
+    serviceId,
+    planId,
+    paymentMethod,
+    couponCode,
+    serviceDetails,
+    onSuccess,
+    onFailure,
+    onCashPayment,
+  }) => {
     setCheckoutLoading(true);
     setCheckoutError(null);
-    try {
-      let orderResponse;
+    setCheckoutStep("initiating");
 
-      // 1. Create Razorpay Order or Subscription (no Firestore write on backend)
-      if (paymentMethod === "EMI") {
-        orderResponse = await createSubscriptionService(serviceId, planId, couponCode);
-      } else {
-        orderResponse = await createOrderService(serviceId, planId, paymentMethod, couponCode);
+    try {
+      // 1. Handle CASH payment
+      if (paymentMethod === "CASH") {
+        if (onCashPayment) {
+          onCashPayment({ serviceId, planId, couponCode: couponCode || null, serviceDetails });
+        }
+        setCheckoutStep(null);
+        return;
       }
 
-      const { razorpayOrderId, subscriptionId, amount, currency, paymentType, razorpayKeyId } = orderResponse;
+      // 2. Handle FULL (One-time) payment
+      if (paymentMethod === "FULL" || paymentMethod === "BANKING") {
+        const orderResponse = await createOrderService(serviceId, planId, paymentMethod, couponCode);
+        const { razorpayOrderId, amount, currency, razorpayKeyId } = orderResponse;
 
-      // 2. Open Razorpay Checkout or handle Cash
-      if (paymentMethod === "CASH") {
-        // Pass context so CashCodeModal can send it to verifyCashPayment
-        if (onCashPayment) {
-          onCashPayment({ serviceId, planId, couponCode: couponCode || null });
+        if (!razorpayKeyId) throw new Error("Missing Razorpay Key ID");
+
+        setCheckoutStep("payment");
+        const paymentResponse = await initiateRazorpayCheckout({
+          key: razorpayKeyId,
+          name: "NeedMet Digital",
+          description: "Full Service Purchase",
+          notes: {
+            ...(currentUser?.uid ? { userId: currentUser.uid } : {}),
+            ...(serviceId ? { serviceId } : {}),
+            ...(planId ? { planId } : {}),
+            paymentMethod: paymentMethod || "FULL",
+            orderId: razorpayOrderId,
+            purchaseId: razorpayOrderId,
+          },
+          amount: amount,
+          currency: currency || "INR",
+          order_id: razorpayOrderId,
+          theme: { color: "#0F5C3E" },
+        });
+
+        setCheckoutStep("verifying");
+        await verifyPayment(
+          paymentResponse.razorpay_order_id || razorpayOrderId,
+          paymentResponse.razorpay_payment_id,
+          paymentResponse.razorpay_signature
+        );
+
+        const paidAmountRupees = Number(amount) > 1000 ? Math.round(Number(amount) / 100) : Number(amount);
+        const purchaseRecord = {
+          purchaseId: razorpayOrderId,
+          orderId: razorpayOrderId,
+          userId: currentUser?.uid || "anonymous",
+          userEmail: currentUser?.email || "",
+          serviceId: serviceId,
+          serviceName: serviceDetails?.serviceName || "NeedMet Digital",
+          planId: planId,
+          planName: serviceDetails?.planName || "Service Plan",
+          category: serviceDetails?.category || "Digital Marketing",
+          imageUrl: serviceDetails?.imageUrl || [],
+          paymentMethod: "FULL",
+          isEmi: false,
+          amount: paidAmountRupees,
+          pricing: {
+            totalPrice: Number(serviceDetails?.finalPrice) || paidAmountRupees,
+            finalPrice: Number(serviceDetails?.finalPrice) || paidAmountRupees,
+            upfrontAmount: paidAmountRupees,
+          },
+          upfrontPayment: {
+            paymentId: paymentResponse.razorpay_payment_id,
+            orderId: razorpayOrderId,
+            amount: paidAmountRupees,
+            status: "captured",
+            paidAt: new Date().toISOString(),
+          },
+          status: "active",
+          planAccessStatus: "active",
+        };
+
+        try {
+          await recordPurchase(purchaseRecord);
+        } catch (dbErr) {
+          console.warn("Failed to persist purchase client-side:", dbErr);
+        }
+
+        setCheckoutStep(null);
+        clearUserPurchasesCache(currentUser?.uid);
+
+        if (onSuccess) {
+          onSuccess(paymentResponse.razorpay_payment_id, {
+            ...purchaseRecord,
+            paymentType: "FULL",
+            orderId: razorpayOrderId,
+          });
         }
         return;
       }
 
-      const options = {
-        key: razorpayKeyId,
-        name: "NeedMet Digital",
-        description: "Service Purchase",
-      };
+      // 3. Handle EMI (Optimized 2-Step Flow)
+      if (paymentMethod === "EMI") {
+        // Step 1A: Create order for 15% upfront down payment
+        const orderResponse = await createOrderService(serviceId, planId, "EMI", couponCode);
+        const { razorpayOrderId, amount, currency, razorpayKeyId } = orderResponse;
 
-      if (!options.key) {
-        throw new Error("Missing Razorpay Key ID");
+        if (!razorpayKeyId) throw new Error("Missing Razorpay Key ID");
+
+        // Step 1B: Customer pays 15% down payment via one-time Razorpay checkout
+        setCheckoutStep("upfront_payment");
+        const upfrontResponse = await initiateRazorpayCheckout({
+          key: razorpayKeyId,
+          name: "NeedMet Digital",
+          description: `EMI Down Payment (${serviceDetails?.upfrontDisplay ? `${serviceDetails.upfrontDisplay} ` : ""}Upfront)`,
+          notes: {
+            ...(currentUser?.uid ? { userId: currentUser.uid } : {}),
+            ...(serviceId ? { serviceId } : {}),
+            ...(planId ? { planId } : {}),
+            paymentMethod: "EMI",
+            flow: "EMI_UPFRONT",
+            orderId: razorpayOrderId,
+            purchaseId: razorpayOrderId,
+          },
+          amount: amount,
+          currency: currency || "INR",
+          order_id: razorpayOrderId,
+          theme: { color: "#0F5C3E" },
+        });
+
+        // Step 1C: Verify upfront payment & persist to Firestore purchases & payments
+        setCheckoutStep("verifying_upfront");
+        await verifyPayment(
+          upfrontResponse.razorpay_order_id || razorpayOrderId,
+          upfrontResponse.razorpay_payment_id,
+          upfrontResponse.razorpay_signature
+        );
+
+        const upfrontAmountRupees = Number(amount) > 1000 ? Math.round(Number(amount) / 100) : Number(amount);
+        const totalCycles = Number(serviceDetails?.totalCycles) || 3;
+        const finalPrice = Number(serviceDetails?.finalPrice) || Math.round(upfrontAmountRupees / 0.15);
+        const emiAmount = Number(serviceDetails?.emiAmount) || Math.round(((finalPrice - upfrontAmountRupees) / totalCycles) * 100) / 100;
+
+        const purchaseRecord = {
+          purchaseId: razorpayOrderId,
+          orderId: razorpayOrderId,
+          userId: currentUser?.uid || "anonymous",
+          userEmail: currentUser?.email || "",
+          serviceId: serviceId,
+          serviceName: serviceDetails?.serviceName || "NeedMet Digital",
+          planId: planId,
+          planName: serviceDetails?.planName || "Service Plan (EMI)",
+          category: serviceDetails?.category || "Digital Marketing",
+          imageUrl: serviceDetails?.imageUrl || [],
+          paymentMethod: "EMI",
+          isEmi: true,
+          amount: upfrontAmountRupees,
+          pricing: {
+            totalPrice: finalPrice,
+            finalPrice: finalPrice,
+            upfrontAmount: upfrontAmountRupees,
+            totalCycles: totalCycles,
+            emiAmount: emiAmount,
+            billingInterval: "monthly",
+          },
+          upfrontPayment: {
+            paymentId: upfrontResponse.razorpay_payment_id,
+            orderId: razorpayOrderId,
+            amount: upfrontAmountRupees,
+            status: "captured",
+            paidAt: new Date().toISOString(),
+          },
+          mandate: {
+            status: "pending",
+            totalCount: totalCycles,
+          },
+          status: "pending_mandate",
+          planAccessStatus: "pending_mandate",
+        };
+
+        try {
+          await recordPurchase(purchaseRecord);
+        } catch (dbErr) {
+          console.warn("Failed to persist EMI purchase client-side:", dbErr);
+        }
+
+        setCheckoutStep(null);
+        clearUserPurchasesCache(currentUser?.uid);
+
+        if (onSuccess) {
+          onSuccess(upfrontResponse.razorpay_payment_id, {
+            ...purchaseRecord,
+            paymentType: "EMI",
+            isEmi: true,
+            upfrontCaptured: true,
+            requiresMandate: true,
+            purchaseId: razorpayOrderId,
+            orderId: razorpayOrderId,
+            amount: upfrontAmountRupees,
+          });
+        }
+        return;
       }
 
-      if (paymentMethod === "EMI" || subscriptionId) {
-        options.subscription_id = subscriptionId;
-      } else {
-        options.amount = amount;
-        options.currency = currency;
-        options.order_id = razorpayOrderId;
-      }
-
-      const paymentResponse = await initiateRazorpayCheckout(options);
-
-      // 3. Verify signature only (webhook handles Firestore)
-      await verifyPayment(
-        paymentResponse.razorpay_order_id || razorpayOrderId,
-        paymentResponse.razorpay_payment_id,
-        paymentResponse.razorpay_signature
-      );
-
-      // 4. Navigate to success
-      if (onSuccess) {
-        onSuccess(paymentResponse.razorpay_payment_id);
-      }
+      throw new Error(`Unsupported payment method: ${paymentMethod}`);
     } catch (err) {
       const errorMessage = err.message || "Checkout process failed";
       setCheckoutError(errorMessage);
@@ -75,9 +236,99 @@ export default function useCheckout() {
     }
   };
 
+  /**
+   * Resumes mandate authorization for a purchase whose upfront fee is already captured.
+   * Ensures an active subscription exists before opening Razorpay checkout.
+   */
+  const resumeMandateAuthorization = async ({
+    purchaseId,
+    subscriptionId = null,
+    razorpayKeyId = null,
+    onSuccess,
+    onFailure,
+  }) => {
+    setCheckoutLoading(true);
+    setCheckoutError(null);
+
+    try {
+      let activeSubId = subscriptionId;
+      let activeKey = razorpayKeyId;
+
+      if (!activeSubId || !activeKey) {
+        setCheckoutStep("setting_up_mandate");
+        const subResponse = await createSubscriptionService({ purchaseId });
+        activeSubId = subResponse.subscriptionId;
+        activeKey = subResponse.razorpayKeyId || activeKey;
+      }
+
+      setCheckoutStep("authorizing_mandate");
+      const mandateResponse = await initiateRazorpayCheckout({
+        key: activeKey,
+        name: "NeedMet Digital",
+        description: "Authorize Monthly Auto-Pay Mandate",
+        subscription_id: activeSubId,
+        theme: { color: "#0F5C3E" },
+      });
+
+      setCheckoutStep("verifying_mandate");
+      await verifyMandate({
+        purchaseId,
+        subscriptionId: activeSubId,
+        paymentId: mandateResponse.razorpay_payment_id,
+        signature: mandateResponse.razorpay_signature,
+      });
+
+      const mandateUpdate = {
+        purchaseId,
+        mandate: {
+          status: "authorized",
+          subscriptionId: activeSubId,
+          paymentId: mandateResponse.razorpay_payment_id,
+          authorizedAt: new Date().toISOString(),
+        },
+        status: "active",
+        planAccessStatus: "active",
+      };
+
+      try {
+        await recordPurchase(mandateUpdate);
+      } catch (dbErr) {
+        console.warn("Failed to update mandate status:", dbErr);
+      }
+
+      setPendingMandate(null);
+      setCheckoutStep(null);
+      clearUserPurchasesCache(currentUser?.uid);
+
+      if (onSuccess) {
+        onSuccess(mandateResponse.razorpay_payment_id, {
+          purchaseId,
+          paymentType: "MANDATE_AUTHORIZED",
+          isEmi: true,
+          subscriptionId: activeSubId,
+        });
+      }
+    } catch (err) {
+      const errorMessage = err.message || "Mandate authorization failed";
+      setCheckoutError(errorMessage);
+      setCheckoutStep("mandate_pending");
+      console.error("Resume mandate error:", err);
+      if (onFailure) {
+        onFailure(errorMessage);
+      }
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+
   return {
     handleCheckoutFlow,
+    resumeMandateAuthorization,
     checkoutLoading,
+    checkoutStep,
     checkoutError,
+    pendingMandate,
   };
 }
+

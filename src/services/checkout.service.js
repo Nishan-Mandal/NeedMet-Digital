@@ -1,4 +1,8 @@
-import { createOrderCallable, createSubscriptionCallable } from "./cloudFunctions";
+import {
+  createOrderCallable,
+  createSubscriptionCallable,
+  verifyPaymentCallable,
+} from "./cloudFunctions";
 
 export const createOrderService = async (serviceId, planId, paymentMethod, couponCode) => {
   try {
@@ -10,12 +14,41 @@ export const createOrderService = async (serviceId, planId, paymentMethod, coupo
   }
 };
 
-export const createSubscriptionService = async (serviceId, planId, couponCode) => {
+/**
+ * Creates or retrieves a recurring subscription for EMI mandate setup.
+ * Supports passing an object with { purchaseId } or legacy positional arguments.
+ */
+export const createSubscriptionService = async (paramsOrServiceId, planId, couponCode) => {
   try {
-    const response = await createSubscriptionCallable({ serviceId, planId, couponCode });
+    let payload;
+    if (typeof paramsOrServiceId === "object" && paramsOrServiceId !== null) {
+      payload = paramsOrServiceId;
+    } else {
+      payload = { serviceId: paramsOrServiceId, planId, couponCode };
+    }
+    const response = await createSubscriptionCallable(payload);
     return response.data;
   } catch (error) {
     console.error("Error creating subscription:", error);
+    throw error;
+  }
+};
+
+/**
+ * Verifies mandate authorization and activates user plan in Firestore.
+ */
+export const verifyMandateService = async ({ purchaseId, subscriptionId, paymentId, signature }) => {
+  try {
+    const response = await verifyPaymentCallable({
+      action: "VERIFY_MANDATE",
+      purchaseId,
+      subscriptionId,
+      paymentId: paymentId || null,
+      signature: signature || null,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error verifying mandate:", error);
     throw error;
   }
 };

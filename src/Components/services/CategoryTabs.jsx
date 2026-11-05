@@ -1,40 +1,35 @@
 export default function CategoryTabs({
-    categories,
-    activeCategory,
-    onCategoryChange,
-    mobile = false,
+  categories = [],
+  activeCategory = "All",
+  onCategoryChange,
+  className = "",
 }) {
-    if (mobile) {
-        return (
-            <select
-                value={activeCategory}
-                onChange={(e) => onCategoryChange(e.target.value)}
-                className="h-12 w-full rounded-xl border border-border/30 bg-primary-surface px-4 text-sm text-text-secondary outline-none"
-            >
-                {categories.map((category) => (
-                    <option key={category} value={category.name}>
-                        {category}
-                    </option>
-                ))}
-            </select>
-        );
-    }
+  if (!categories || categories.length === 0) return null;
 
-    return (
-        <div className="flex flex-wrap gap-3">
-            {categories.map((category) => (
-                <button
-                    key={category}
-                    onClick={() => onCategoryChange(category)}
-                    className={`rounded-full px-5 py-2.5 text-sm font-medium transition
-    ${activeCategory === category
-                            ? "bg-primary text-white shadow"
-                            : "bg-primary-surface text-text-secondary hover:bg-primary-surface"
-                        }`}
-                >
-                    {category}
-                </button>
-            ))}
-        </div>
-    );
+  return (
+    <div
+      className={`flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1 text-xs font-semibold ${className}`}
+    >
+      {categories.map((cat) => {
+        const name = typeof cat === "object" ? cat.name || cat.title : cat;
+        const key = typeof cat === "object" ? cat.id || cat.name : cat;
+        const isSelected = activeCategory === name;
+
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onCategoryChange && onCategoryChange(name)}
+            className={`shrink-0 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 transition-all cursor-pointer select-none ${
+              isSelected
+                ? "bg-[#0f5c3e] text-white shadow-2xs font-bold"
+                : "bg-white text-gray-600 border border-gray-200/90 hover:bg-gray-50 hover:text-gray-900"
+            }`}
+          >
+            {name}
+          </button>
+        );
+      })}
+    </div>
+  );
 }

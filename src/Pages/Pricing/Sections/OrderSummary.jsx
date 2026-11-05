@@ -26,7 +26,13 @@ export default function OrderSummary({ currentPlan, pricing, paymentMethod, setP
                         paymentMethod={paymentMethod}
                         setPaymentMethod={setPaymentMethod} />
                     <div className="mt-6">
-                        <CheckoutButton onClick={onCheckout} isLoading={checkoutLoading} />
+                        <CheckoutButton
+                            onClick={onCheckout}
+                            isLoading={checkoutLoading}
+                            isEmi={pricing?.isEmi}
+                            upfrontAmount={pricing?.upfrontAmount}
+                            upfrontDisplay={pricing?.upfrontDisplay}
+                        />
                     </div>
                     <div className=" mt-1 pt-1 flex items-center justify-center gap-1 text-secondary text-label-sm text-xs">
                         <span className="material-symbols-outlined icon-sm">lock</span>

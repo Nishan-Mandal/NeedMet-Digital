@@ -12,7 +12,7 @@ export default function Navbar() {
 
     const navigate = useNavigate();
     const location = useLocation();
-    const { currentUser } = useAuth();
+    const { currentUser, isAdmin, isStaff, logout } = useAuth();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
 
@@ -33,12 +33,17 @@ export default function Navbar() {
 
     const handleLogout = async () => {
         setDropdownOpen(false);
-        await signOut(auth);
-        navigate("/");
+        // Instantly redirect to login so there's 0 delay for the user
+        navigate("/login", { replace: true });
+        if (logout) {
+            await logout();
+        } else {
+            await signOut(auth);
+        }
     };
 
     return (
-        <header className="sticky top-0 z-50 h-16 sm:h-18 lg:h-20 border-b border-border/20 bg-background-secondary/80 backdrop-blur-md ">
+        <header className="sticky top-0 z-50 h-16 sm:h-15 border-b border-border/20 bg-background-secondary/80 backdrop-blur-md ">
             <Container className="flex h-full items-center justify-between px-4 sm:px-6 lg:px-8">
 
                 {/* Logo */}
@@ -85,30 +90,55 @@ export default function Navbar() {
 
                             {/* Dropdown Panel */}
                             {dropdownOpen && (
-                                <div className="absolute right-0 top-11 z-50 w-64 rounded-2xl border border-border/30 bg-white shadow-xl p-4 space-y-4">
+                                <div className="absolute right-0 top-11 z-50 w-64 rounded-2xl border border-border/30 bg-white shadow-xl p-3 space-y-2 text-left">
                                     {/* User Info */}
-                                    <div className="space-y-1">
-                                        <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                                            Logged in as
+                                    <div className="px-2 pt-1 pb-2 space-y-0.5">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">
+                                            Signed in as
                                         </p>
                                         {currentUser.displayName && (
-                                            <p className="text-sm font-semibold text-text truncate">
+                                            <p className="text-sm font-bold text-gray-900 truncate">
                                                 {currentUser.displayName}
                                             </p>
                                         )}
-                                        <p className="text-sm text-text-secondary truncate">
+                                        <p className="text-xs text-text-secondary truncate">
                                             {currentUser.phoneNumber || currentUser.email || "—"}
                                         </p>
                                     </div>
 
-                                    <div className="border-t border-border/30" />
+                                    <div className="border-t border-border/20" />
+
+                                    {/* Navigation Links */}
+                                    <div className="space-y-1">
+                                        <Link
+                                            to="/profile"
+                                            onClick={() => setDropdownOpen(false)}
+                                            className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-100 transition"
+                                        >
+                                            <span className="material-symbols-outlined text-lg text-primary">account_circle</span>
+                                            My Plans & Profile
+                                        </Link>
+
+                                        {(isAdmin || isStaff) && (
+                                            <Link
+                                                to="/admin/plans"
+                                                onClick={() => setDropdownOpen(false)}
+                                                className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-semibold text-purple-700 hover:bg-purple-50 transition"
+                                            >
+                                                <span className="material-symbols-outlined text-lg text-purple-700">admin_panel_settings</span>
+                                                Plan Management
+                                            </Link>
+                                        )}
+                                    </div>
+
+                                    <div className="border-t border-border/20" />
 
                                     {/* Logout */}
                                     <button
                                         onClick={handleLogout}
-                                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
+                                        className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-semibold text-red-500 hover:bg-red-50 transition cursor-pointer"
                                     >
-                                        <span className="material-symbols-outlined text-base">logout</span>
+                                        <span className="material-symbols-outlined text-lg">logout</span>
                                         Logout
                                     </button>
                                 </div>

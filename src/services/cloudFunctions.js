@@ -23,6 +23,22 @@ export const createOrderCallable = httpsCallable(functions, "createOrder");
 export const verifyPaymentCallable = httpsCallable(functions, "verifyPayment");
 
 /**
+ * Verifies a Razorpay recurring mandate authorization and activates user plan.
+ * @param {Object} data
+ * @param {string} data.purchaseId
+ * @param {string} data.subscriptionId
+ * @param {string} [data.paymentId]
+ * @param {string} [data.signature]
+ * @returns {Promise<Object>}
+ */
+export const verifyMandateCallable = httpsCallable(functions, "verifyMandate");
+
+/**
+ * Fetches user purchases securely via Cloud Functions (bypasses Firestore client rules).
+ */
+export const getUserPurchasesCallable = httpsCallable(functions, "getUserPurchases");
+
+/**
  * Verifies a cash payment (if you have manual codes or similar).
  * @param {Object} data 
  * @param {string} data.orderId
