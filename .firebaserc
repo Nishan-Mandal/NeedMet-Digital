@@ -1,5 +1,15 @@
 {
   "projects": {
-    "default": "needmet-partial"
-  }
+    "default": "startup20-5eaa7"
+  },
+  "targets": {
+    "startup20-5eaa7": {
+      "hosting": {
+        "react": [
+          "needmet-digital"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
