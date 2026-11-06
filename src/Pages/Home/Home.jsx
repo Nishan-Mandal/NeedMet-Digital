@@ -18,8 +18,6 @@ const parsePrice = (price) => {
 
 const SORT_OPTIONS = ["default", "price-asc", "price-desc", "title"];
 
-
-
 export default function Home() {
     const [activeCategory, setActiveCategory] = useState("All");
     const [searchQuery, setSearchQuery] = useState("");
@@ -38,12 +36,6 @@ export default function Home() {
         const loadData = async () => {
             setIsLoading(true);
             
-            // Commented out firebase reviews fetch
-            // const [services, reviews, categories] = await Promise.all([
-            //     fetchServices(),
-            //     fetchReviews(),
-            //     fetchCategories()
-            // ]);
             const [services, categories] = await Promise.all([
                 fetchServices(),
                 fetchCategories()
@@ -65,13 +57,23 @@ export default function Home() {
         }
     }, [location, isLoading]);
 
+    const isServiceActive = (service) => {
+        return (
+            service.status !== "archived" &&
+            service.status !== "draft" &&
+            service.isActive !== false &&
+            !service.isArchived
+        );
+    };
+
     const featuredService = useMemo(() => {
-        return servicesData.find((service) => service.featured);
+        return servicesData.find((service) => service.featured && isServiceActive(service));
     }, [servicesData]);
 
     const filteredServices = useMemo(() => {
         let result = servicesData.filter((service) => {
             if (service.featured) return false;
+            if (!isServiceActive(service)) return false;
 
             const categoryParam = activeCategory.toLowerCase().replace(/ /g, '-');
             const matchesCategory =
@@ -112,8 +114,6 @@ export default function Home() {
         <>
             <Container>
                 <div>
-                    
-              
                 <main>
                     <HeroSection
                         parallax={parallax}

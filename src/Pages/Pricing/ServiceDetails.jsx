@@ -53,6 +53,15 @@ export default function ServiceDetails() {
       setError(null);
       try {
         const { service: loadedService, plans: loadedPlans } = await fetchServiceWithPlans(id);
+        if (
+          loadedService.status === "archived" ||
+          loadedService.isActive === false ||
+          loadedService.isArchived === true
+        ) {
+          setService(null);
+          setError("This service has been archived and is no longer available.");
+          return;
+        }
         setService(loadedService);
         setPlansArray(loadedPlans);
 

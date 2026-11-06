@@ -56,6 +56,28 @@ function getStatusConfig(purchase) {
     };
   }
 
+  // Cancelled or Failed check
+  if (purchase.status === "cancelled" || purchase.planAccessStatus === "cancelled" || purchase.status === "failed") {
+    return {
+      label: "Cancelled",
+      variant: "neutral",
+      icon: "cancel",
+      badgeClass: "bg-red-600 text-white font-semibold shadow-xs",
+      dotClass: "bg-white",
+    };
+  }
+
+  // Pending / Unpaid check
+  if (purchase.status === "pending" || purchase.upfrontPayment?.status === "pending") {
+    return {
+      label: "Payment Incomplete",
+      variant: "warning",
+      icon: "pending",
+      badgeClass: "bg-amber-600 text-white font-semibold shadow-xs",
+      dotClass: "bg-white",
+    };
+  }
+
   return {
     label: "Processing",
     variant: "neutral",
