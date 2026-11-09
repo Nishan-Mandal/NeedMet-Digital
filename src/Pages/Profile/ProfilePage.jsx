@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
-import { fetchUserPurchases, fetchUserPlans } from "../../services/db";
-import { reconcileUserPurchases, isPurchasePendingMandate } from "./utils/profile.utils";
+import { useUserPurchasesQuery } from "../../hooks/queries/useUserPurchasesQuery";
+import { isPurchasePendingMandate } from "./utils/profile.utils";
 
 import ProfileHeader from "./Sections/ProfileHeader";
 import ProfileSummaryMetrics from "./Sections/ProfileSummaryMetrics";
@@ -18,9 +18,10 @@ export default function ProfilePage() {
 
   const plansSectionRef = useRef(null);
 
-  const [purchases, setPurchases] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [planFilter, setPlanFilter] = useState(mandatePendingParam ? "pending_mandate" : "all");
+  const [pageSize, setPageSize] = useState(6);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [cursorStack, setCursorStack] = useState([null]);
 
   // Redirect unauthenticated visitors to login
   useEffect(() => {
@@ -29,36 +30,50 @@ export default function ProfilePage() {
     }
   }, [currentUser, authLoading, navigate]);
 
-  // Load user purchases and entitlements (Single Collection Authoritative Query with fallback)
-  const loadPurchases = useCallback(async () => {
-    if (!currentUser?.uid) return;
-    setLoading(true);
-    try {
-      // 1. Authoritative fetch from 'purchases' collection (cached in-memory, targeted metadata)
-      const purchasesData = await fetchUserPurchases(currentUser.uid, { forceRefresh: true });
+  const currentCursor = cursorStack[pageIndex] || null;
 
-      // 2. Fetch user entitlements from users/{uid}.plans for backward compatibility
-      const legacyPlans = await fetchUserPlans(currentUser.uid);
+  // TanStack Query for cursor-paginated user purchases (staleTime 2m, auto-cache)
+  const {
+    data: queryResult,
+    isLoading: isQueryLoading,
+    isFetching,
+    refetch,
+  } = useUserPurchasesQuery({
+    userId: currentUser?.uid,
+    status: planFilter,
+    pageSize,
+    cursor: currentCursor,
+  });
 
-      // 3. Reconcile and deduplicate across both authoritative purchases and legacy entitlements
-      const unifiedPurchases = reconcileUserPurchases(purchasesData || [], legacyPlans || [], []);
+  const purchases = queryResult?.purchases || [];
+  const hasNextPage = Boolean(queryResult?.hasMore);
+  const hasPreviousPage = pageIndex > 0;
 
-      setPurchases(unifiedPurchases || []);
-    } catch (err) {
-      console.error("Error loading user profile plans:", err);
-    } finally {
-      setLoading(false);
+  const handleNextPage = useCallback(() => {
+    if (hasNextPage && queryResult?.lastDoc) {
+      setCursorStack((prev) => {
+        const next = [...prev];
+        next[pageIndex + 1] = queryResult.lastDoc;
+        return next;
+      });
+      setPageIndex((prev) => prev + 1);
     }
-  }, [currentUser]);
+  }, [hasNextPage, queryResult?.lastDoc, pageIndex]);
 
-  useEffect(() => {
-    if (currentUser?.uid) {
-      loadPurchases();
+  const handlePreviousPage = useCallback(() => {
+    if (pageIndex > 0) {
+      setPageIndex((prev) => prev - 1);
     }
-  }, [currentUser, loadPurchases]);
+  }, [pageIndex]);
+
+  const handleFilterChange = (filterKey) => {
+    setPlanFilter(filterKey);
+    setPageIndex(0);
+    setCursorStack([null]);
+  };
 
   const scrollToPlans = (filterKey) => {
-    if (filterKey) setPlanFilter(filterKey);
+    if (filterKey) handleFilterChange(filterKey);
     if (plansSectionRef.current) {
       plansSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -69,7 +84,7 @@ export default function ProfilePage() {
     [purchases]
   );
 
-  if (authLoading || (!currentUser && loading)) {
+  if (authLoading || (!currentUser && isQueryLoading)) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center bg-background-secondary">
         <div className="flex flex-col items-center gap-3">
@@ -99,14 +114,20 @@ export default function ProfilePage() {
           onActionClick={() => scrollToPlans("pending_mandate")}
         />
 
-        {/* Section 4: Purchased Plans Section (Filter tabs, Search, Responsive Grid) */}
+        {/* Section 4: Purchased Plans Section (Filter tabs, Search, Responsive Grid with Server Pagination) */}
         <PurchasedPlansSection
           purchases={purchases}
-          loading={loading}
+          loading={isQueryLoading}
           planFilter={planFilter}
-          onFilterChange={setPlanFilter}
+          onFilterChange={handleFilterChange}
           highlightedPurchaseId={highlightedPurchaseId}
           sectionRef={plansSectionRef}
+          currentPage={pageIndex + 1}
+          pageSize={pageSize}
+          hasPreviousPage={hasPreviousPage}
+          hasNextPage={hasNextPage}
+          onPreviousPage={handlePreviousPage}
+          onNextPage={handleNextPage}
         />
       </div>
     </div>

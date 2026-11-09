@@ -6,6 +6,10 @@ import {
     getDoc,
     query,
     where,
+    limit,
+    orderBy,
+    startAfter,
+    getCountFromServer,
     serverTimestamp,
     deleteDoc,
 } from "firebase/firestore";
@@ -18,6 +22,12 @@ import {
     sanitizePlanVariant,
     isZeroOrEmptyDuration,
 } from "../utils/duration.utils";
+import {
+    reconcileUserPurchases,
+    isPurchasePendingMandate,
+    isPurchaseActive,
+    isPurchaseCompleted,
+} from "../Pages/Profile/utils/profile.utils";
 
 export const fetchServices = async () => {
     try {
@@ -446,6 +456,131 @@ export const fetchUserPurchases = async (userId, { forceRefresh = false } = {}) 
 };
 
 /**
+ * Server-side cursor-paginated retrieval of purchased plans for the authenticated user.
+ * Strictly scoped to `userId` for guaranteed user data isolation.
+ * Automatically falls back to resilient user entitlements (Cloud functions, subscriptions,
+ * users/{userId}.plans) if direct client Firestore query is restricted by security rules.
+ */
+export const fetchUserPurchasesPaginated = async (userId, {
+    status = "all",
+    pageSize = 6,
+    cursor = null,
+} = {}) => {
+    if (!userId) return { success: true, purchases: [], lastDoc: null, hasMore: false };
+
+    // 1. Attempt direct Firestore paginated query on 'purchases'
+    try {
+        const coll = collection(db, "purchases");
+        const fetchLimit = pageSize + 1;
+        let constraints = [
+            where("userId", "==", userId),
+            orderBy("createdAt", "desc"),
+        ];
+
+        if (cursor && typeof cursor === "object" && cursor.data) {
+            constraints.push(startAfter(cursor));
+        }
+
+        constraints.push(limit(fetchLimit));
+
+        const snap = await getDocs(query(coll, ...constraints));
+        const docs = snap.docs;
+        const hasMore = docs.length > pageSize;
+        const resultDocs = hasMore ? docs.slice(0, pageSize) : docs;
+        const lastDoc = resultDocs.length > 0 ? resultDocs[resultDocs.length - 1] : null;
+
+        const purchases = [];
+        resultDocs.forEach((docSnap) => {
+            const data = docSnap.data();
+            const upfrontStatus = data.upfrontPayment?.status;
+            const isPaidOrActive =
+                data.status === "active" ||
+                data.status === "completed" ||
+                data.planAccessStatus === "active" ||
+                data.planAccessStatus === "completed" ||
+                upfrontStatus === "captured" ||
+                upfrontStatus === "success" ||
+                Boolean(data.primaryPaymentId) ||
+                Boolean(data.paymentId) ||
+                Boolean(data.upfrontPayment?.paymentId);
+
+            if (isPaidOrActive && data.status !== "cancelled" && data.planAccessStatus !== "cancelled" && data.status !== "failed") {
+                const record = { id: docSnap.id, purchaseId: docSnap.id, ...data };
+                if (record.display) {
+                    if (!record.imageUrl && record.display.serviceImageUrl) record.imageUrl = record.display.serviceImageUrl;
+                    if (!record.description && record.display.serviceDescription) record.description = record.display.serviceDescription;
+                    if (!record.category && record.display.category) record.category = record.display.category;
+                    if (!record.serviceName && record.display.serviceTitle) record.serviceName = record.display.serviceTitle;
+                    if (!record.title && record.display.serviceTitle) record.title = record.display.serviceTitle;
+                    if (!record.planName && record.display.planName) record.planName = record.display.planName;
+                }
+                purchases.push(record);
+            }
+        });
+
+        if (purchases.length > 0 || hasMore) {
+            return {
+                success: true,
+                purchases,
+                lastDoc,
+                hasMore,
+            };
+        }
+    } catch {
+        // Direct query on /purchases is restricted by Firestore client security rules or missing index.
+        // Proceed directly to the resilient authoritative pipeline below.
+    }
+
+    // 2. Resilient Fallback: Authoritative fetchUserPurchases + legacy plans + reconciliation
+    try {
+        const purchasesData = await fetchUserPurchases(userId);
+        const legacyPlans = await fetchUserPlans(userId);
+        const unified = reconcileUserPurchases(purchasesData || [], legacyPlans || [], []);
+
+        // Filter by lifecycle status if requested
+        let filtered = unified;
+        if (status === "pending_mandate") {
+            filtered = filtered.filter(isPurchasePendingMandate);
+        } else if (status === "active") {
+            filtered = filtered.filter(isPurchaseActive);
+        } else if (status === "completed") {
+            filtered = filtered.filter(isPurchaseCompleted);
+        }
+
+        // Offset / cursor pagination over the reconciled list
+        let startIndex = 0;
+        if (cursor) {
+            const cursorId = typeof cursor === "string" ? cursor : (cursor?.id || cursor?.purchaseId);
+            const foundIdx = filtered.findIndex((p) => p.id === cursorId || p.purchaseId === cursorId);
+            if (foundIdx !== -1) {
+                startIndex = foundIdx + 1;
+            }
+        }
+
+        const pagePurchases = filtered.slice(startIndex, startIndex + pageSize);
+        const hasMore = startIndex + pageSize < filtered.length;
+        const lastDoc = pagePurchases.length > 0 ? pagePurchases[pagePurchases.length - 1].id : null;
+
+        return {
+            success: true,
+            purchases: pagePurchases,
+            lastDoc,
+            hasMore,
+            totalCount: filtered.length,
+        };
+    } catch (fallbackError) {
+        console.error("Error in fetchUserPurchasesPaginated fallback:", fallbackError);
+        return {
+            success: false,
+            purchases: [],
+            lastDoc: null,
+            hasMore: false,
+            error: fallbackError.message,
+        };
+    }
+};
+
+/**
  * Fetches user entitlements from users/{userId} (plans array).
  * Preserved for backward compatibility with legacy historical records.
  */
@@ -646,6 +781,140 @@ export const fetchAdminPlans = async () => {
     } catch (error) {
         console.error("Error fetching admin plans from services collection:", error);
         throw error;
+    }
+};
+
+export const normalizeAdminServicePlan = (sDoc) => {
+    const serviceData = typeof sDoc.data === "function" ? sDoc.data() : (sDoc || {});
+    const serviceId = sDoc.id || serviceData.id || serviceData.serviceId;
+
+    const rawPlans = serviceData.plans || serviceData.variants || [];
+    const variants = rawPlans.map((p, idx) => sanitizePlanVariant(p, `Option ${idx + 1}`));
+    const primaryVariant = variants[0] || {};
+
+    return {
+        id: serviceId,
+        planId: serviceId,
+        name: serviceData.title || serviceData.name || "Service Plan",
+        title: serviceData.title || serviceData.name || "Service Plan",
+        description: serviceData.description || "",
+        serviceId: serviceId,
+        serviceName: serviceData.title || serviceData.name || "NeedMet Digital",
+        category: serviceData.category || "Digital Marketing",
+        status: serviceData.status || "published",
+        source: "services",
+        imageUrl: serviceData.imageUrl
+            ? (Array.isArray(serviceData.imageUrl) ? serviceData.imageUrl : [serviceData.imageUrl])
+            : (serviceData.image ? [serviceData.image] : []),
+        isActive: serviceData.isActive !== undefined ? Boolean(serviceData.isActive) : true,
+        price: Number(primaryVariant.price) || Number(serviceData.price) || 0,
+        finalPrice: Number(primaryVariant.finalPrice) || Number(primaryVariant.price) || Number(serviceData.finalPrice) || 0,
+        duration: primaryVariant.duration || serviceData.duration || "3 Months",
+        durationDays: primaryVariant.durationDays || serviceData.durationDays || 92,
+        tag: primaryVariant.tag || serviceData.badge || serviceData.tag || "",
+        badge: serviceData.badge || primaryVariant.tag || "",
+        variants: variants,
+        plans: variants,
+        datesConfig: serviceData.datesConfig || null,
+        notes: serviceData.notes || "",
+        createdBy: serviceData.createdBy || "Admin",
+        creatorEmail: serviceData.creatorEmail || "",
+        createdAt: serviceData.createdAt || null,
+        updatedAt: serviceData.updatedAt || null,
+        updatedBy: serviceData.updatedBy || "",
+    };
+};
+
+/**
+ * Server-side cursor-paginated service plans retrieval.
+ */
+export const fetchAdminPlansPaginated = async ({
+    status = "all",
+    search = "",
+    category = "all",
+    pageSize = 10,
+    cursor = null,
+} = {}) => {
+    try {
+        const coll = collection(db, "services");
+        const fetchLimit = pageSize + 1;
+        let constraints = [];
+
+        if (status && status !== "all") {
+            constraints.push(where("status", "==", status));
+        }
+
+        if (category && category !== "all") {
+            constraints.push(where("category", "==", category));
+        }
+
+        constraints.push(orderBy("createdAt", "desc"));
+
+        if (cursor) {
+            constraints.push(startAfter(cursor));
+        }
+
+        constraints.push(limit(fetchLimit));
+
+        let snap;
+        try {
+            snap = await getDocs(query(coll, ...constraints));
+        } catch (qErr) {
+            console.warn("Paginated services query fallback:", qErr.message);
+            const fallbackConstraints = cursor ? [startAfter(cursor), limit(fetchLimit)] : [limit(fetchLimit)];
+            snap = await getDocs(query(coll, ...fallbackConstraints));
+        }
+
+        const docs = snap.docs;
+        const hasMore = docs.length > pageSize;
+        const resultDocs = hasMore ? docs.slice(0, pageSize) : docs;
+        const lastDoc = resultDocs.length > 0 ? resultDocs[resultDocs.length - 1] : null;
+
+        let plans = resultDocs.map(normalizeAdminServicePlan);
+
+        // Search in-page if search term provided
+        if (search && search.trim()) {
+            const q = search.trim().toLowerCase();
+            plans = plans.filter((p) =>
+                (p.title && p.title.toLowerCase().includes(q)) ||
+                (p.category && p.category.toLowerCase().includes(q))
+            );
+        }
+
+        return {
+            success: true,
+            plans,
+            lastDoc,
+            hasMore,
+        };
+    } catch (error) {
+        console.error("Error in fetchAdminPlansPaginated:", error);
+        throw error;
+    }
+};
+
+/**
+ * Returns service count aggregates for admin dashboard metrics.
+ */
+export const fetchAdminPlansMetrics = async () => {
+    try {
+        const coll = collection(db, "services");
+        const [totalSnap, publishedSnap, draftSnap, archivedSnap] = await Promise.all([
+            getCountFromServer(coll),
+            getCountFromServer(query(coll, where("status", "==", "published"))),
+            getCountFromServer(query(coll, where("status", "==", "draft"))),
+            getCountFromServer(query(coll, where("status", "==", "archived"))),
+        ]);
+
+        return {
+            total: totalSnap.data().count,
+            published: publishedSnap.data().count,
+            draft: draftSnap.data().count,
+            archived: archivedSnap.data().count,
+        };
+    } catch (err) {
+        console.error("Error fetching admin plan metrics:", err);
+        return { total: 0, published: 0, draft: 0, archived: 0 };
     }
 };
 

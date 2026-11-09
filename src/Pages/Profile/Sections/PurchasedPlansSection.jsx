@@ -8,6 +8,7 @@ import {
   isPurchaseProcessing,
   filterPurchases,
 } from "../utils/profile.utils";
+import PaginationControl from "../../../Admin/components/PaginationControl";
 
 export default function PurchasedPlansSection({
   purchases = [],
@@ -16,6 +17,12 @@ export default function PurchasedPlansSection({
   onFilterChange,
   highlightedPurchaseId = null,
   sectionRef,
+  currentPage = 1,
+  pageSize = 6,
+  hasPreviousPage = false,
+  hasNextPage = false,
+  onPreviousPage,
+  onNextPage,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -163,6 +170,7 @@ export default function PurchasedPlansSection({
           <p className="mt-3 text-xs text-text-secondary">Refreshing plans...</p>
         </div>
       ) : displayedPurchases.length > 0 ? (
+        <>
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
           {displayedPurchases.map((purchase) => {
             const purchaseId = purchase.id || purchase.purchaseId;
@@ -180,6 +188,23 @@ export default function PurchasedPlansSection({
             );
           })}
         </div>
+
+        {/* Server-Side Pagination Bar */}
+        {(hasPreviousPage || hasNextPage) && (
+          <div className="rounded-2xl overflow-hidden border border-border/50 shadow-2xs">
+            <PaginationControl
+              currentPage={currentPage}
+              pageSize={pageSize}
+              hasPreviousPage={hasPreviousPage}
+              hasNextPage={hasNextPage}
+              onPreviousPage={onPreviousPage}
+              onNextPage={onNextPage}
+              currentCount={displayedPurchases.length}
+              loading={loading}
+            />
+          </div>
+        )}
+        </>
       ) : (
         <div className="rounded-2xl border border-dashed border-border/60 bg-white/70 p-10 text-center space-y-3">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-400">

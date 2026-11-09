@@ -3,11 +3,20 @@ import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
 import { fetchPurchaseById } from "../../services/db";
 import { formatCurrency } from "../../utils/Formatters";
+import { useInvalidateUserPurchases } from "../../hooks/queries/useUserPurchasesQuery";
 
 export default function SuccessPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const invalidateUserPurchases = useInvalidateUserPurchases();
+
+  // Invalidate user plans cache so Profile page reflects the new purchase immediately
+  useEffect(() => {
+    if (currentUser?.uid) {
+      invalidateUserPurchases(currentUser.uid);
+    }
+  }, [currentUser?.uid, invalidateUserPurchases]);
 
   // Extract query parameters
   const orderId = searchParams.get("orderId") || "";
@@ -35,10 +44,10 @@ export default function SuccessPage() {
   const [countdown, setCountdown] = useState(5);
   const [isPaused, setIsPaused] = useState(false);
 
-  // Hydrate purchase if query params are missing service/plan names
+  // Hydrate purchase if query params are missing service/plan names or amount
   useEffect(() => {
     let isMounted = true;
-    if (purchaseId && (!paramServiceName || !paramPlanName)) {
+    if (purchaseId && (!paramServiceName || !paramPlanName || !paramAmount)) {
       fetchPurchaseById(purchaseId, currentUser?.uid)
         .then((doc) => {
           if (isMounted && doc) {
@@ -52,7 +61,7 @@ export default function SuccessPage() {
     return () => {
       isMounted = false;
     };
-  }, [purchaseId, currentUser?.uid, paramServiceName, paramPlanName]);
+  }, [purchaseId, currentUser?.uid, paramServiceName, paramPlanName, paramAmount]);
 
   // Derived display values
   const serviceName =
