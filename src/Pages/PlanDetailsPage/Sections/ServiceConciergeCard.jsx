@@ -70,10 +70,10 @@ export default function ServiceConciergeCard({ purchase }) {
         <span className="material-symbols-outlined text-xl">support_agent</span>
       </div>
       <div className="space-y-1 min-w-0 flex-1">
-        <h4 className="font-heading font-bold text-xs sm:text-sm text-black">
+        <h4 className="font-heading font-bold text-xs sm:text-sm text-slate-900">
           Questions About Deliverables?
         </h4>
-        <p className="text-[11px] text-black leading-relaxed">
+        <p className="text-[11px] text-slate-500 leading-relaxed">
           Our service delivery managers are here to assist with any milestone or mandate questions.
         </p>
         <a

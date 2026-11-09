@@ -43,7 +43,7 @@ export default function PurchasedPlanDetailsPage() {
   if (notFound) return <PlanNotFound />;
 
   return (
-    <div className="min-h-screen bg-background-secondary py-4 sm:py-6 md:py-8 px-3.5 sm:px-6 lg:px-8 text-black">
+    <div className="min-h-screen bg-background-secondary py-4 sm:py-6 md:py-8 px-3.5 sm:px-6 lg:px-8 text-slate-900">
       <div className="mx-auto max-w-6xl space-y-4 sm:space-y-6">
 
         {/* Back Navigation Bar */}

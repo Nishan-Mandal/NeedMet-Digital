@@ -135,22 +135,22 @@ export default function PlanDetailsCard({ purchase }) {
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between text-left cursor-pointer group"
       >
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-700">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-700">
             <span className="material-symbols-outlined text-xl">inventory_2</span>
           </div>
-          <div>
-            <h3 className="font-heading font-bold text-black text-sm sm:text-base tracking-tight">
+          <div className="min-w-0 flex-1">
+            <h3 className="font-heading font-bold text-slate-900 text-sm sm:text-base tracking-tight truncate">
               Plan & Service Details
             </h3>
-            <p className="text-[11px] sm:text-xs text-black font-medium">
+            <p className="text-[11px] sm:text-xs text-slate-500 font-normal truncate">
               Contract specifications & identifiers
             </p>
           </div>
         </div>
 
         <span
-          className={`material-symbols-outlined text-gray-500 group-hover:text-black transition-transform duration-200 ${
+          className={`material-symbols-outlined text-gray-400 group-hover:text-slate-800 transition-transform duration-200 shrink-0 ${
             isExpanded ? "rotate-180" : ""
           }`}
         >
@@ -169,8 +169,8 @@ export default function PlanDetailsCard({ purchase }) {
                 className="flex items-start sm:items-center justify-between py-2.5 gap-3"
               >
                 {/* Left Label with Icon */}
-                <div className="flex items-center gap-2 text-black font-medium shrink-0">
-                  <span className="material-symbols-outlined text-gray-500 text-base shrink-0">
+                <div className="flex items-center gap-2 text-slate-600 font-medium shrink-0">
+                  <span className="material-symbols-outlined text-slate-400 text-base shrink-0">
                     {row.icon}
                   </span>
                   <span>{row.label}</span>
@@ -183,7 +183,7 @@ export default function PlanDetailsCard({ purchase }) {
                       className={`font-mono text-xs px-2 py-0.5 rounded font-semibold tracking-tight ${
                         row.isMuted
                           ? "bg-amber-50 text-amber-900 border border-amber-200"
-                          : "bg-gray-100 text-black border border-gray-200"
+                          : "bg-slate-100 text-slate-800 border border-slate-200/80"
                       }`}
                       title={row.value}
                     >
@@ -193,8 +193,8 @@ export default function PlanDetailsCard({ purchase }) {
                     <span
                       className={`font-heading font-semibold truncate ${
                         row.isMuted
-                          ? "text-gray-500 font-normal"
-                          : "text-black"
+                          ? "text-slate-400 font-normal"
+                          : "text-slate-900"
                       }`}
                       title={row.value}
                     >

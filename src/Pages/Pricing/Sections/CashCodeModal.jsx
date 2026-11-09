@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { verifyCashPaymentService } from "../../../services/payment.service";
 import { useNavigate } from "react-router-dom";
+import { buildSuccessQueryParams } from "../utils";
 
-export default function CashCodeModal({ isOpen, onClose, serviceId, planId, couponCode }) {
+export default function CashCodeModal({ isOpen, onClose, serviceId, planId, couponCode, serviceDetails }) {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -17,9 +18,21 @@ export default function CashCodeModal({ isOpen, onClose, serviceId, planId, coup
     setLoading(true);
     setError(null);
     try {
-      await verifyCashPaymentService(serviceId, planId, couponCode, code.trim());
+      const result = await verifyCashPaymentService(serviceId, planId, couponCode, code.trim());
       onClose();
-      navigate(`/checkout/success?paymentType=CASH&serviceId=${encodeURIComponent(serviceId || "")}&planId=${encodeURIComponent(planId || "")}`);
+
+      const metadata = {
+        paymentType: "CASH",
+        purchaseId: result?.purchaseId || "",
+        serviceId: serviceId || "",
+        planId: planId || "",
+        serviceName: serviceDetails?.serviceName || "",
+        planName: serviceDetails?.planName || "",
+        amount: serviceDetails?.finalPrice ?? serviceDetails?.upfrontAmount,
+        totalAmount: serviceDetails?.finalPrice ?? serviceDetails?.basePrice,
+      };
+
+      navigate(`/checkout/success?${buildSuccessQueryParams(metadata)}`);
     } catch (err) {
       setError(err.message || "Failed to verify cash code");
     } finally {

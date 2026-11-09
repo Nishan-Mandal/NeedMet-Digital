@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ChevronDown } from "lucide-react";
 
 /**
  * InstallmentSchedule Component
@@ -11,6 +12,7 @@ import React, { useState } from "react";
  */
 export default function InstallmentSchedule({ purchase }) {
   const [copiedPid, setCopiedPid] = useState(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   if (!purchase) return null;
 
@@ -292,33 +294,53 @@ export default function InstallmentSchedule({ purchase }) {
     }
   };
 
+  const hasMoreThanFour = scheduleItems.length > 4;
+  const visibleItems = isExpanded || !hasMoreThanFour ? scheduleItems : scheduleItems.slice(0, 4);
+
   return (
     <div className="rounded-2xl border border-gray-200/90 bg-white p-4 sm:p-6 md:p-7 shadow-xs text-left">
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 sm:pb-5 border-b border-gray-100 mb-5 sm:mb-6">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-[#0F5C3E]">
+      <div className="flex items-center justify-between gap-3 pb-3 sm:pb-4 border-b border-gray-100 mb-4 sm:mb-5">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-[#0F5C3E]">
             <span className="material-symbols-outlined text-xl">timeline</span>
           </div>
-          <div>
-            <h3 className="font-heading font-bold text-black text-sm sm:text-base tracking-tight">
+          <div className="min-w-0 flex-1">
+            <h3 className="font-heading font-bold text-slate-900 text-sm sm:text-base tracking-tight truncate">
               Installment Schedule
             </h3>
-            <p className="text-[11px] sm:text-xs text-black font-medium">
+            <p className="text-[11px] sm:text-xs text-slate-500 font-normal truncate">
               {cyclesCount} payment milestones & verified gateway records
             </p>
           </div>
         </div>
 
-        <span className="font-heading text-xs font-bold text-black bg-gray-100 px-2.5 py-1 rounded-lg">
-          {cyclesCount} Cycles
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="font-heading text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg">
+            {cyclesCount} Cycles
+          </span>
+          {hasMoreThanFour && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded((prev) => !prev)}
+              className="flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200/90 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs transition-all cursor-pointer"
+              aria-label={isExpanded ? "Collapse installments" : "Expand installments"}
+              title={isExpanded ? "Collapse" : "Expand"}
+            >
+              <ChevronDown
+                className={`h-4 w-4 text-slate-600 transition-transform duration-200 ${
+                  isExpanded ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Timeline List */}
       <div className="space-y-0">
-        {scheduleItems.map((item, index) => {
-          const isLast = index === scheduleItems.length - 1;
+        {visibleItems.map((item, index) => {
+          const isLast = index === visibleItems.length - 1;
 
           return (
             <div
@@ -342,7 +364,7 @@ export default function InstallmentSchedule({ purchase }) {
               <div className="flex flex-1 flex-col sm:flex-row sm:items-start justify-between gap-1.5 sm:gap-3 pt-0.5 min-w-0">
                 <div className="space-y-1 min-w-0 flex-1">
                   <div className="flex items-center justify-between sm:justify-start gap-2">
-                    <h4 className="font-heading font-bold text-black text-sm sm:text-base leading-tight">
+                    <h4 className="font-heading font-bold text-slate-900 text-sm sm:text-base leading-tight">
                       {item.title}
                     </h4>
                     {/* Badge on mobile next to title */}
@@ -351,20 +373,20 @@ export default function InstallmentSchedule({ purchase }) {
                     </div>
                   </div>
 
-                  <p className="font-heading font-extrabold text-base sm:text-lg text-black leading-snug tabular-nums">
+                  <p className="font-heading font-extrabold text-base sm:text-lg text-slate-900 leading-snug tabular-nums">
                     {formatCurrency(item.amount)}
                   </p>
 
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-black font-medium">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 font-normal">
                     <span>{item.dateLabel}</span>
 
                     {item.rawPaymentId && (
-                      <div className="inline-flex items-center gap-1 bg-gray-100 text-black font-mono text-[11px] px-1.5 py-0.5 rounded border border-gray-200">
+                      <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 font-mono text-[11px] px-1.5 py-0.5 rounded border border-slate-200/80">
                         <span>ID: {item.rawPaymentId.slice(0, 14)}...</span>
                         <button
                           type="button"
                           onClick={() => copyToClipboard(item.rawPaymentId)}
-                          className="hover:text-emerald-700 transition cursor-pointer"
+                          className="text-slate-400 hover:text-emerald-700 transition cursor-pointer"
                           title="Copy full payment ID"
                         >
                           <span className="material-symbols-outlined text-xs">
@@ -385,6 +407,21 @@ export default function InstallmentSchedule({ purchase }) {
           );
         })}
       </div>
+
+      {/* Icon-only expand button below truncated list */}
+      {hasMoreThanFour && !isExpanded && (
+        <div className="pt-2 flex justify-center border-t border-gray-100/60 mt-2">
+          <button
+            type="button"
+            onClick={() => setIsExpanded(true)}
+            className="flex items-center justify-center h-8 w-8 rounded-full border border-slate-200/90 bg-slate-50 hover:bg-slate-100 text-slate-700 shadow-2xs transition-all cursor-pointer group"
+            aria-label="Expand all installments"
+            title="Expand"
+          >
+            <ChevronDown className="h-4 w-4 text-slate-600 group-hover:text-slate-900" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
