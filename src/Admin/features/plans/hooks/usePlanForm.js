@@ -9,6 +9,7 @@ import {
   normalizeExistingPlan,
   clonePlanForForm,
   buildPlanPayload,
+  getDefaultMonthlyEmiCycles,
 } from "../utils/planForm.utils";
 
 export default function usePlanForm({ planId, cloneFromId, isEditMode, currentUser, navigate }) {
@@ -227,7 +228,7 @@ export default function usePlanForm({ planId, cloneFromId, isEditMode, currentUs
         } else {
           const days = Math.max(Number(value) || 0, 1);
           target.durationDays = days;
-          const autoCycles = Math.max(Math.ceil((days - 5) / 30), 1);
+          const autoCycles = getDefaultMonthlyEmiCycles(target);
           target.totalCycles = autoCycles;
 
           const isZeroOrDays =
@@ -251,6 +252,13 @@ export default function usePlanForm({ planId, cloneFromId, isEditMode, currentUs
             target.planType = "Custom";
             if (isZeroOrDays) target.duration = `${days} Days`;
           }
+        }
+      }
+
+      if (field === "duration" || field === "planType") {
+        const autoCycles = getDefaultMonthlyEmiCycles(target);
+        if (!target.totalCycles) {
+          target.totalCycles = autoCycles;
         }
       }
 

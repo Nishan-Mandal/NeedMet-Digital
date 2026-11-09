@@ -1,4 +1,5 @@
 import React from "react";
+import { getDefaultMonthlyEmiCycles } from "../../../utils/planForm.utils";
 
 export default function VariantEmiSection({
   activeVariant = {},
@@ -10,14 +11,16 @@ export default function VariantEmiSection({
     return null;
   }
 
+  const defaultCycles = getDefaultMonthlyEmiCycles(activeVariant);
+
   const upfrontVal =
     activeVariant.upfrontValue !== undefined && activeVariant.upfrontValue !== null
       ? activeVariant.upfrontValue
       : "";
   const cyclesVal =
-    activeVariant.totalCycles !== undefined && activeVariant.totalCycles !== null
+    activeVariant.totalCycles !== undefined && activeVariant.totalCycles !== null && activeVariant.totalCycles !== ""
       ? activeVariant.totalCycles
-      : "";
+      : defaultCycles;
   const billingDayVal =
     activeVariant.billingDay !== undefined && activeVariant.billingDay !== null && activeVariant.billingDay !== ""
       ? activeVariant.billingDay
@@ -64,7 +67,9 @@ export default function VariantEmiSection({
 
         {/* Monthly EMI Cycles */}
         <div className="space-y-1">
-          <label className="text-xs font-bold text-slate-800">Monthly EMI Cycles</label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-slate-800">Monthly EMI Cycles</label>
+          </div>
           <input
             type="text"
             inputMode="numeric"
@@ -73,7 +78,7 @@ export default function VariantEmiSection({
               const numeric = e.target.value.replace(/[^0-9]/g, "");
               onUpdateVariant(activeIndex, "totalCycles", numeric);
             }}
-            placeholder="e.g. 3"
+            placeholder={`e.g. ${defaultCycles}`}
             className="w-full rounded-xl border border-slate-200 bg-[#f8faf9] focus:bg-white px-3 py-2 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#0f5c3e] focus:ring-1 focus:ring-[#0f5c3e]/20 shadow-2xs transition"
           />
         </div>

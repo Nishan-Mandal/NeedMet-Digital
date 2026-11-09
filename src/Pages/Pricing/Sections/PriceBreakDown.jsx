@@ -91,7 +91,7 @@ export default function PriceBreakdown({ plan, pricing }) {
       ) : (
         <div className="border-t border-gray-100 pt-3">
           <div className="flex justify-between items-baseline">
-            <span className="text-base font-bold text-gray-900">Total Due Today</span>
+            <span className="text-base font-bold text-gray-900">Total </span>
             <span className="text-2xl font-bold text-primary">
               {formatCurrency(pricing.grand)}
             </span>

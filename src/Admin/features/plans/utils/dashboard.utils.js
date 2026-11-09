@@ -164,7 +164,8 @@ export function formatEmiScheduleSummary(sub) {
       : 15;
 
   const durationDays = getSafeDurationDays(sub);
-  const autoCycles = Math.max(Math.ceil((durationDays - 5) / 30), 1);
+  const months = Math.max(Math.round(durationDays / 30), 1);
+  const autoCycles = Math.max(months - 1, 1);
 
   const rawCycles =
     sub.totalCycles !== undefined && sub.totalCycles !== null

@@ -15,6 +15,34 @@ export {
 };
 
 /**
+ * Returns duration expressed in integer months (1, 3, 6, 12, etc.).
+ */
+export function getDurationInMonths(planOrDays) {
+  if (!planOrDays) return 1;
+  if (typeof planOrDays === "number") {
+    return Math.max(Math.round(planOrDays / 30), 1);
+  }
+  const text = `${planOrDays.duration || ""} ${planOrDays.planType || ""} ${planOrDays.name || ""}`;
+  const mMatch = text.match(/(\d+)\s*(?:month|m\b)/i);
+  if (mMatch && Number(mMatch[1]) > 0) return Number(mMatch[1]);
+  if (/1\s*year/i.test(text) || /(?:^|\b|-|_|\s)12\s*m/i.test(text)) return 12;
+  const days = Number(planOrDays.durationDays);
+  if (days && days > 0) {
+    return Math.max(Math.round(days / 30), 1);
+  }
+  return 1;
+}
+
+/**
+ * Calculates standard default Monthly EMI Cycles: duration in months - 1.
+ * As followed across the website (the 1st month is covered by the upfront down payment).
+ */
+export function getDefaultMonthlyEmiCycles(planOrDays) {
+  const months = getDurationInMonths(planOrDays);
+  return Math.max(months - 1, 1);
+}
+
+/**
  * Preset duration configurations for quick 1-click addition of plans / duration options
  */
 export const DURATION_PRESETS = [
@@ -37,7 +65,7 @@ export const DURATION_PRESETS = [
     durationDays: 92,
     planType: "3 Months",
     tag: "Popular",
-    defaultCycles: 3,
+    defaultCycles: 2, // 3 Months - 1 = 2 recurring cycles
     defaultPrice: 3999,
   },
   {
@@ -48,7 +76,7 @@ export const DURATION_PRESETS = [
     durationDays: 184,
     planType: "6 Months",
     tag: "Best Value",
-    defaultCycles: 6,
+    defaultCycles: 5, // 6 Months - 1 = 5 recurring cycles
     defaultPrice: 6999,
   },
   {
@@ -59,7 +87,7 @@ export const DURATION_PRESETS = [
     durationDays: 365,
     planType: "1 Year",
     tag: "Saver",
-    defaultCycles: 12,
+    defaultCycles: 11, // 12 Months - 1 = 11 recurring cycles
     defaultPrice: 12999,
   },
 ];
@@ -70,8 +98,7 @@ export const DURATION_PRESETS = [
 export function createPlan(config = {}) {
   const duration = formatPlanDuration(config);
   const durationDays = getSafeDurationDays(config);
-  const bufferDays = 5;
-  const autoCycles = Math.max(Math.ceil((durationDays - bufferDays) / 30), 1);
+  const autoCycles = getDefaultMonthlyEmiCycles({ ...config, duration, durationDays });
   const name = formatPlanTitle(config) || `${duration} Plan`;
 
   return {
@@ -136,7 +163,7 @@ export const DEFAULT_PLAN_FORM = {
       paymentOptions: "BOTH",
       upfrontType: "percentage",
       upfrontValue: 15,
-      totalCycles: 3,
+      totalCycles: 2, // 3 Months - 1 = 2 recurring cycles
       features: [
         {
           icon: "account_circle",
@@ -166,7 +193,7 @@ export const DEFAULT_PLAN_FORM = {
       paymentOptions: "BOTH",
       upfrontType: "percentage",
       upfrontValue: 15,
-      totalCycles: 6,
+      totalCycles: 5, // 6 Months - 1 = 5 recurring cycles
       features: [
         {
           icon: "account_circle",
@@ -216,7 +243,8 @@ export function calculateVariantPricing(variant = {}) {
     Math.round((finalPrice - upfrontAmount) * 100) / 100,
     0
   );
-  const cycles = Math.max(Number(variant.totalCycles) || 1, 1);
+  const defaultCycles = getDefaultMonthlyEmiCycles(variant);
+  const cycles = Math.max(Number(variant.totalCycles) || defaultCycles, 1);
   const emiAmount = Math.round((remainingAmount / cycles) * 100) / 100;
   const discountPercent =
     rawPrice > 0 ? Math.round((discount / rawPrice) * 100) : 0;
@@ -279,6 +307,22 @@ export function normalizeExistingPlan(existingRecord) {
     const durationDays = getSafeDurationDays(p);
     const duration = formatPlanDuration(p);
     const name = formatPlanTitle(p) || `${duration} Plan`;
+    const months = getDurationInMonths({ ...p, duration, durationDays });
+    const defaultCycles = Math.max(months - 1, 1);
+
+    // If totalCycles is missing, 0, or equals the legacy unadjusted duration in months (e.g. 3 for 3M),
+    // default to duration in months - 1 as followed across the website
+    const rawCycles =
+      p.totalCycles !== undefined && p.totalCycles !== null && p.totalCycles !== ""
+        ? Number(p.totalCycles)
+        : (p.emiConfig?.totalCycles !== undefined && p.emiConfig?.totalCycles !== null && p.emiConfig?.totalCycles !== ""
+            ? Number(p.emiConfig.totalCycles)
+            : null);
+
+    const safeTotalCycles =
+      rawCycles === null || rawCycles === 0 || rawCycles === months
+        ? defaultCycles
+        : rawCycles;
 
     return createPlan({
       id: p.planId || p.id || `plan-${idx + 1}`,
@@ -294,7 +338,7 @@ export function normalizeExistingPlan(existingRecord) {
       paymentOptions: p.paymentOptions || "BOTH",
       upfrontType: p.upfrontType || p.emiConfig?.upfrontType || "percentage",
       upfrontValue: p.upfrontValue !== undefined ? Number(p.upfrontValue) : (p.emiConfig?.upfrontValue !== undefined ? Number(p.emiConfig.upfrontValue) : 15),
-      totalCycles: p.totalCycles !== undefined ? Number(p.totalCycles) : (p.emiConfig?.totalCycles !== undefined ? Number(p.emiConfig.totalCycles) : Math.max(Math.ceil((durationDays - 5) / 30), 1)),
+      totalCycles: safeTotalCycles,
       billingDay: p.billingDay !== undefined ? Number(p.billingDay) : (Number(p.emiConfig?.billingDay) || 9),
       firstDebitDays: p.firstDebitDays !== undefined ? Number(p.firstDebitDays) : (Number(p.emiConfig?.firstDebitDays) || 30),
       features: featList,
