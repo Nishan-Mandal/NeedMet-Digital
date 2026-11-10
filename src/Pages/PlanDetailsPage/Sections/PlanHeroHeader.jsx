@@ -1,4 +1,5 @@
 import React from "react";
+import { deriveDurationDays } from "../utils/planDetails.utils";
 
 export default function PlanHeroHeader({
   purchase,
@@ -8,6 +9,8 @@ export default function PlanHeroHeader({
   formatDate,
 }) {
   if (!purchase) return null;
+
+  const durationDays = deriveDurationDays(purchase);
 
   const serviceName =
     purchase.serviceName ||
@@ -38,11 +41,11 @@ export default function PlanHeroHeader({
             <span className="inline-flex items-center rounded-md bg-slate-100 border border-slate-200/80 px-2 py-0.5 font-heading text-xs sm:text-sm font-semibold text-slate-700">
               {planName}
             </span>
-            {purchase.durationDays && (
+            {durationDays > 0 && (
               <>
                 <span className="text-slate-300">•</span>
                 <span className="text-xs sm:text-sm font-medium text-slate-500">
-                  {purchase.durationDays} Days Execution
+                  {durationDays} Days Execution
                 </span>
               </>
             )}

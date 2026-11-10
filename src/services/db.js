@@ -371,6 +371,13 @@ export const fetchUserPurchases = async (userId, { forceRefresh = false } = {}) 
             if (userPlans && userPlans.length > 0) {
                 userPlans.forEach((planItem, idx) => {
                     const key = planItem.purchaseId || planItem.paymentId || `user-plan-${idx}`;
+                    const sDate = planItem.startDate ? new Date(planItem.startDate?.toDate ? planItem.startDate.toDate() : planItem.startDate) : new Date();
+                    let eDate = planItem.endDate ? new Date(planItem.endDate?.toDate ? planItem.endDate.toDate() : planItem.endDate) : null;
+                    const durationDays = Number(planItem.durationDays) || 92;
+                    if (!eDate || isNaN(eDate.getTime()) || eDate.getTime() <= sDate.getTime() + 24 * 60 * 60 * 1000) {
+                        eDate = new Date(sDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+                    }
+
                     purchases.push({
                         id: key,
                         purchaseId: key,
@@ -378,11 +385,12 @@ export const fetchUserPurchases = async (userId, { forceRefresh = false } = {}) 
                         serviceName: planItem.serviceName || "NeedMet Digital",
                         planType: planItem.planType || "Monthly",
                         amount: planItem.amount || 0,
+                        durationDays: durationDays,
                         paymentMethod: planItem.paymentType || "FULL",
                         planAccessStatus: planItem.status || "active",
                         status: planItem.status || "active",
-                        startDate: planItem.startDate,
-                        endDate: planItem.endDate,
+                        startDate: planItem.startDate || sDate.toISOString(),
+                        endDate: eDate.toISOString(),
                         createdAt: planItem.startDate || null,
                         source: "users.plans",
                     });
@@ -693,6 +701,13 @@ export const fetchPurchaseById = async (purchaseId, userId) => {
                     p.id === pIdStr
             );
             if (planFound) {
+                const sDate = planFound.startDate ? new Date(planFound.startDate?.toDate ? planFound.startDate.toDate() : planFound.startDate) : new Date();
+                let eDate = planFound.endDate ? new Date(planFound.endDate?.toDate ? planFound.endDate.toDate() : planFound.endDate) : null;
+                const durationDays = Number(planFound.durationDays) || 92;
+                if (!eDate || isNaN(eDate.getTime()) || eDate.getTime() <= sDate.getTime() + 24 * 60 * 60 * 1000) {
+                    eDate = new Date(sDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+                }
+
                 return {
                     id: planFound.purchaseId || planFound.paymentId || pIdStr,
                     purchaseId: planFound.purchaseId || planFound.paymentId || pIdStr,
@@ -700,12 +715,13 @@ export const fetchPurchaseById = async (purchaseId, userId) => {
                     serviceName: planFound.serviceName || "NeedMet Digital",
                     planType: planFound.planType || "Monthly",
                     amount: planFound.amount || 0,
+                    durationDays: durationDays,
                     paymentMethod: planFound.paymentType || "FULL",
                     planAccessStatus: planFound.status || "active",
                     status: planFound.status || "active",
-                    startDate: planFound.startDate,
-                    endDate: planFound.endDate,
-                    createdAt: planFound.startDate,
+                    startDate: planFound.startDate || sDate.toISOString(),
+                    endDate: eDate.toISOString(),
+                    createdAt: planFound.startDate || sDate.toISOString(),
                 };
             }
         } catch (err) {

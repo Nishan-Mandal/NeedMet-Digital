@@ -73,6 +73,10 @@ export default function useCheckout() {
         );
 
         const paidAmountRupees = Number(amount) > 1000 ? Math.round(Number(amount) / 100) : Number(amount);
+        const fullDurationDays = Number(serviceDetails?.durationDays) || 92;
+        const nowFull = new Date();
+        const endFullDate = new Date(nowFull.getTime() + fullDurationDays * 24 * 60 * 60 * 1000);
+
         const purchaseRecord = {
           purchaseId: razorpayOrderId,
           orderId: razorpayOrderId,
@@ -87,6 +91,11 @@ export default function useCheckout() {
           paymentMethod: "FULL",
           isEmi: false,
           amount: paidAmountRupees,
+          duration: serviceDetails?.duration || `${fullDurationDays} Days`,
+          durationDays: fullDurationDays,
+          planType: serviceDetails?.planType || serviceDetails?.duration || `${fullDurationDays} Days`,
+          startDate: nowFull.toISOString(),
+          endDate: endFullDate.toISOString(),
           pricing: {
             totalPrice: Number(serviceDetails?.finalPrice) || paidAmountRupees,
             finalPrice: Number(serviceDetails?.finalPrice) || paidAmountRupees,
@@ -165,6 +174,10 @@ export default function useCheckout() {
         const finalPrice = Number(serviceDetails?.finalPrice) || Math.round(upfrontAmountRupees / 0.15);
         const emiAmount = Number(serviceDetails?.emiAmount) || Math.round(((finalPrice - upfrontAmountRupees) / totalCycles) * 100) / 100;
 
+        const emiDurationDays = Number(serviceDetails?.durationDays) || 92;
+        const nowEmi = new Date();
+        const endEmiDate = new Date(nowEmi.getTime() + emiDurationDays * 24 * 60 * 60 * 1000);
+
         const purchaseRecord = {
           purchaseId: razorpayOrderId,
           orderId: razorpayOrderId,
@@ -179,6 +192,11 @@ export default function useCheckout() {
           paymentMethod: "EMI",
           isEmi: true,
           amount: upfrontAmountRupees,
+          duration: serviceDetails?.duration || `${emiDurationDays} Days`,
+          durationDays: emiDurationDays,
+          planType: serviceDetails?.planType || serviceDetails?.duration || `${emiDurationDays} Days`,
+          startDate: nowEmi.toISOString(),
+          endDate: endEmiDate.toISOString(),
           pricing: {
             totalPrice: finalPrice,
             finalPrice: finalPrice,

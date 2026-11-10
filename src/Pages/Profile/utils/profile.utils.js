@@ -150,7 +150,13 @@ export function reconcileUserPurchases(purchasesData = [], plansData = [], servi
       const existing = purchaseMap.get(matchedKey);
       if (existing) {
         if (!existing.startDate && planItem.startDate) existing.startDate = planItem.startDate;
-        if (!existing.endDate && planItem.endDate) existing.endDate = planItem.endDate;
+        if (!existing.endDate && planItem.endDate) {
+          const s = new Date(existing.startDate || planItem.startDate);
+          const e = new Date(planItem.endDate);
+          if (!isNaN(s.getTime()) && !isNaN(e.getTime()) && e.getTime() > s.getTime() + 24 * 60 * 60 * 1000) {
+            existing.endDate = planItem.endDate;
+          }
+        }
       }
     } else {
       // Check if plan matches an existing purchase by planName and serviceName
@@ -162,6 +168,13 @@ export function reconcileUserPurchases(purchasesData = [], plansData = [], servi
 
       if (!alreadyRepresented) {
         const newKey = planItem.purchaseId || planItem.paymentId || `user-plan-${idx}`;
+        const sDate = planItem.startDate ? new Date(planItem.startDate?.toDate ? planItem.startDate.toDate() : planItem.startDate) : new Date();
+        let eDate = planItem.endDate ? new Date(planItem.endDate?.toDate ? planItem.endDate.toDate() : planItem.endDate) : null;
+        const durationDays = Number(planItem.durationDays) || 92;
+        if (!eDate || isNaN(eDate.getTime()) || eDate.getTime() <= sDate.getTime() + 24 * 60 * 60 * 1000) {
+          eDate = new Date(sDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+        }
+
         const newPurchase = {
           id: newKey,
           purchaseId: newKey,
@@ -169,12 +182,13 @@ export function reconcileUserPurchases(purchasesData = [], plansData = [], servi
           serviceName: planItem.serviceName || "NeedMet Digital",
           planType: planItem.planType || "Monthly",
           amount: planItem.amount || 0,
+          durationDays: durationDays,
           paymentMethod: planItem.paymentType || "FULL",
           planAccessStatus: planItem.status || "active",
           status: planItem.status || "active",
-          startDate: planItem.startDate,
-          endDate: planItem.endDate,
-          createdAt: planItem.startDate,
+          startDate: planItem.startDate || sDate.toISOString(),
+          endDate: eDate.toISOString(),
+          createdAt: planItem.startDate || sDate.toISOString(),
         };
         purchaseMap.set(newKey, newPurchase);
         ids.forEach((id) => knownIdToKey.set(id, newKey));

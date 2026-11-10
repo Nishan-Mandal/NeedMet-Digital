@@ -22,18 +22,33 @@ export default function PlanDetailsCard({ purchase }) {
   if (!purchase) return null;
 
   const isEmi = checkIsEmi(purchase);
-  const durationDays = deriveDurationDays(purchase);
+  const rawDurationDays = deriveDurationDays(purchase);
+  const durationDays = rawDurationDays > 0 ? rawDurationDays : 90;
 
   const baseDate = getSafeDate(
-    purchase.createdAt || purchase.startDate,
+    purchase.startDate || purchase.createdAt,
     extractDateFromId(purchase.id || purchase.orderId) || new Date()
   );
   const startDateStr = formatPlanDate(baseDate);
 
-  const endDateObj = getSafeDate(
-    purchase.endDate,
-    new Date(baseDate.getTime() + durationDays * 24 * 60 * 60 * 1000)
-  );
+  // Compute calculated target end date strictly from start date + durationDays
+  const calculatedEndDate = new Date(baseDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+  // If purchase.endDate is in database, verify it is strictly after the start date (>24 hours)
+  // Prevents legacy bugs where endDate was stored identical to startDate/createdAt
+  let endDateObj = null;
+  if (purchase.endDate) {
+    const candidateEnd = getSafeDate(purchase.endDate, null);
+    if (candidateEnd && candidateEnd.getTime() > baseDate.getTime() + 24 * 60 * 60 * 1000) {
+      endDateObj = candidateEnd;
+    }
+  }
+
+  // Fallback to calculatedEndDate
+  if (!endDateObj) {
+    endDateObj = calculatedEndDate;
+  }
+
   const endDateStr = formatPlanDate(endDateObj);
 
   const purchaseRef = derivePurchaseReference(purchase, baseDate);
@@ -91,7 +106,7 @@ export default function PlanDetailsCard({ purchase }) {
     },
     {
       id: "end_date",
-      label: "Target Completion",
+      label: "End Date",
       value: endDateStr,
       icon: "event_available",
       show: Boolean(endDateStr),

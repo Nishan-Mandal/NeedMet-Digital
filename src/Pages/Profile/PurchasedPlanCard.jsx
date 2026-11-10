@@ -110,11 +110,13 @@ export default function PurchasedPlanCard({ purchase }) {
     }
     const nameStr = `${purchase.planName || ""} ${purchase.planType || ""} ${purchase.duration || ""} ${Array.isArray(purchase.plans) ? purchase.plans[0]?.duration || "" : ""}`;
     const mMatch = nameStr.match(/(\d+)\s*(?:M|Months?)/i);
-    if (mMatch) return Number(mMatch[1]) * 30;
+    if (mMatch && Number(mMatch[1]) > 0) return Number(mMatch[1]) * 30;
     const dMatch = nameStr.match(/(\d+)\s*(?:D|Days?)/i);
-    if (dMatch) return Number(dMatch[1]);
+    if (dMatch && Number(dMatch[1]) > 0) return Number(dMatch[1]);
+    const yMatch = nameStr.match(/(\d+)\s*(?:Y|Years?)/i);
+    if (yMatch && Number(yMatch[1]) > 0) return Number(yMatch[1]) * 365;
     const cycles = Number(purchase.pricing?.totalCycles ?? purchase.mandate?.totalCount ?? 0);
-    if (cycles > 0) return cycles * 30;
+    if (cycles > 0) return Math.max((cycles + 1) * 30, 30);
     return 90;
   };
 
