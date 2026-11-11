@@ -6,6 +6,10 @@ import {
     getDoc,
     query,
     where,
+    limit,
+    orderBy,
+    startAfter,
+    getCountFromServer,
     serverTimestamp,
     deleteDoc,
 } from "firebase/firestore";
@@ -18,6 +22,12 @@ import {
     sanitizePlanVariant,
     isZeroOrEmptyDuration,
 } from "../utils/duration.utils";
+import {
+    reconcileUserPurchases,
+    isPurchasePendingMandate,
+    isPurchaseActive,
+    isPurchaseCompleted,
+} from "../Pages/Profile/utils/profile.utils";
 
 export const fetchServices = async () => {
     try {
@@ -297,19 +307,31 @@ export const fetchUserPurchases = async (userId, { forceRefresh = false } = {}) 
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((docSnap) => {
             const data = docSnap.data();
-            const upfrontStatus = data.upfrontPayment?.status;
+            const statusUpper = String(data.status || "").toUpperCase();
+            const upfrontStatus = String(data.upfrontPayment?.status || "").toLowerCase();
             const isPaidOrActive =
+                statusUpper === "ACTIVE" ||
+                statusUpper === "COMPLETED" ||
+                statusUpper === "PENDING_MANDATE" ||
                 data.status === "active" ||
                 data.status === "completed" ||
                 data.planAccessStatus === "active" ||
                 data.planAccessStatus === "completed" ||
                 upfrontStatus === "captured" ||
                 upfrontStatus === "success" ||
+                Boolean(data.upfrontPayment?.paymentId) ||
                 Boolean(data.primaryPaymentId) ||
-                Boolean(data.paymentId) ||
-                Boolean(data.upfrontPayment?.paymentId);
+                Boolean(data.paymentId);
 
-            if (isPaidOrActive && data.status !== "cancelled" && data.planAccessStatus !== "cancelled" && data.status !== "failed") {
+            if (
+                isPaidOrActive &&
+                statusUpper !== "CANCELLED" &&
+                statusUpper !== "REFUNDED" &&
+                statusUpper !== "FAILED" &&
+                data.status !== "cancelled" &&
+                data.planAccessStatus !== "cancelled" &&
+                data.status !== "failed"
+            ) {
                 purchases.push({ id: docSnap.id, purchaseId: docSnap.id, ...data });
             }
         });
@@ -361,6 +383,13 @@ export const fetchUserPurchases = async (userId, { forceRefresh = false } = {}) 
             if (userPlans && userPlans.length > 0) {
                 userPlans.forEach((planItem, idx) => {
                     const key = planItem.purchaseId || planItem.paymentId || `user-plan-${idx}`;
+                    const sDate = planItem.startDate ? new Date(planItem.startDate?.toDate ? planItem.startDate.toDate() : planItem.startDate) : new Date();
+                    let eDate = planItem.endDate ? new Date(planItem.endDate?.toDate ? planItem.endDate.toDate() : planItem.endDate) : null;
+                    const durationDays = Number(planItem.durationDays) || 92;
+                    if (!eDate || isNaN(eDate.getTime()) || eDate.getTime() <= sDate.getTime() + 24 * 60 * 60 * 1000) {
+                        eDate = new Date(sDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+                    }
+
                     purchases.push({
                         id: key,
                         purchaseId: key,
@@ -368,11 +397,12 @@ export const fetchUserPurchases = async (userId, { forceRefresh = false } = {}) 
                         serviceName: planItem.serviceName || "NeedMet Digital",
                         planType: planItem.planType || "Monthly",
                         amount: planItem.amount || 0,
+                        durationDays: durationDays,
                         paymentMethod: planItem.paymentType || "FULL",
                         planAccessStatus: planItem.status || "active",
                         status: planItem.status || "active",
-                        startDate: planItem.startDate,
-                        endDate: planItem.endDate,
+                        startDate: planItem.startDate || sDate.toISOString(),
+                        endDate: eDate.toISOString(),
                         createdAt: planItem.startDate || null,
                         source: "users.plans",
                     });
@@ -390,15 +420,24 @@ export const fetchUserPurchases = async (userId, { forceRefresh = false } = {}) 
         return timeB - timeA;
     });
 
-    // 2c. Unpack embedded display snapshots (0 Firestore reads)
+    // 2c. Unpack embedded itemSnapshot or legacy display snapshots (0 Firestore reads)
     purchases.forEach((p) => {
-        if (p.display) {
-            if (!p.imageUrl && p.display.serviceImageUrl) p.imageUrl = p.display.serviceImageUrl;
-            if (!p.description && p.display.serviceDescription) p.description = p.display.serviceDescription;
-            if (!p.category && p.display.category) p.category = p.display.category;
-            if (!p.serviceName && p.display.serviceTitle) p.serviceName = p.display.serviceTitle;
-            if (!p.title && p.display.serviceTitle) p.title = p.display.serviceTitle;
-            if (!p.planName && p.display.planName) p.planName = p.display.planName;
+        const snapshot = p.itemSnapshot || p.display;
+        if (snapshot) {
+            if (!p.imageUrl && (snapshot.imageUrl || snapshot.serviceImageUrl)) p.imageUrl = snapshot.imageUrl || snapshot.serviceImageUrl;
+            if (!p.description && (snapshot.description || snapshot.serviceDescription)) p.description = snapshot.description || snapshot.serviceDescription;
+            if (!p.category && snapshot.category) p.category = snapshot.category;
+            if (!p.serviceName && (snapshot.serviceTitle || snapshot.serviceName)) p.serviceName = snapshot.serviceTitle || snapshot.serviceName;
+            if (!p.title && (snapshot.serviceTitle || snapshot.serviceName)) p.title = snapshot.serviceTitle || snapshot.serviceName;
+            if (!p.planName && (snapshot.planTitle || snapshot.planName)) p.planName = snapshot.planTitle || snapshot.planName;
+            if (!p.durationDays && snapshot.durationDays) p.durationDays = snapshot.durationDays;
+            if (!p.features && snapshot.features) p.features = snapshot.features;
+            if (!p.serviceId && snapshot.serviceId) p.serviceId = snapshot.serviceId;
+            if (!p.planId && snapshot.planId) p.planId = snapshot.planId;
+        }
+        if (p.accessWindow) {
+            if (!p.startDate && p.accessWindow.activatedAt) p.startDate = p.accessWindow.activatedAt;
+            if (!p.endDate && p.accessWindow.expiresAt) p.endDate = p.accessWindow.expiresAt;
         }
     });
 
@@ -443,6 +482,152 @@ export const fetchUserPurchases = async (userId, { forceRefresh = false } = {}) 
     userPurchasesCache.set(cacheKey, { timestamp: Date.now(), data: purchases });
 
     return purchases;
+};
+
+/**
+ * Server-side cursor-paginated retrieval of purchased plans for the authenticated user.
+ * Strictly scoped to `userId` for guaranteed user data isolation.
+ * Automatically falls back to resilient user entitlements (Cloud functions, subscriptions,
+ * users/{userId}.plans) if direct client Firestore query is restricted by security rules.
+ */
+export const fetchUserPurchasesPaginated = async (userId, {
+    status = "all",
+    pageSize = 6,
+    cursor = null,
+} = {}) => {
+    if (!userId) return { success: true, purchases: [], lastDoc: null, hasMore: false };
+
+    // 1. Attempt direct Firestore paginated query on 'purchases'
+    try {
+        const coll = collection(db, "purchases");
+        const fetchLimit = pageSize + 1;
+        let constraints = [
+            where("userId", "==", userId),
+            orderBy("createdAt", "desc"),
+        ];
+
+        if (cursor && typeof cursor === "object" && cursor.data) {
+            constraints.push(startAfter(cursor));
+        }
+
+        constraints.push(limit(fetchLimit));
+
+        const snap = await getDocs(query(coll, ...constraints));
+        const docs = snap.docs;
+        const hasMore = docs.length > pageSize;
+        const resultDocs = hasMore ? docs.slice(0, pageSize) : docs;
+        const lastDoc = resultDocs.length > 0 ? resultDocs[resultDocs.length - 1] : null;
+
+        const purchases = [];
+        resultDocs.forEach((docSnap) => {
+            const data = docSnap.data();
+            const statusUpper = String(data.status || "").toUpperCase();
+            const upfrontStatus = String(data.upfrontPayment?.status || "").toLowerCase();
+            const isPaidOrActive =
+                statusUpper === "ACTIVE" ||
+                statusUpper === "COMPLETED" ||
+                statusUpper === "PENDING_MANDATE" ||
+                data.status === "active" ||
+                data.status === "completed" ||
+                data.planAccessStatus === "active" ||
+                data.planAccessStatus === "completed" ||
+                upfrontStatus === "captured" ||
+                upfrontStatus === "success" ||
+                Boolean(data.upfrontPayment?.paymentId) ||
+                Boolean(data.primaryPaymentId) ||
+                Boolean(data.paymentId);
+
+            if (
+                isPaidOrActive &&
+                statusUpper !== "CANCELLED" &&
+                statusUpper !== "REFUNDED" &&
+                statusUpper !== "FAILED" &&
+                data.status !== "cancelled" &&
+                data.planAccessStatus !== "cancelled" &&
+                data.status !== "failed"
+            ) {
+                const record = { id: docSnap.id, purchaseId: docSnap.id, ...data };
+                const snapshot = record.itemSnapshot || record.display;
+                if (snapshot) {
+                    if (!record.imageUrl && (snapshot.imageUrl || snapshot.serviceImageUrl)) record.imageUrl = snapshot.imageUrl || snapshot.serviceImageUrl;
+                    if (!record.description && (snapshot.description || snapshot.serviceDescription)) record.description = snapshot.description || snapshot.serviceDescription;
+                    if (!record.category && snapshot.category) record.category = snapshot.category;
+                    if (!record.serviceName && (snapshot.serviceTitle || snapshot.serviceName)) record.serviceName = snapshot.serviceTitle || snapshot.serviceName;
+                    if (!record.title && (snapshot.serviceTitle || snapshot.serviceName)) record.title = snapshot.serviceTitle || snapshot.serviceName;
+                    if (!record.planName && (snapshot.planTitle || snapshot.planName)) record.planName = snapshot.planTitle || snapshot.planName;
+                    if (!record.durationDays && snapshot.durationDays) record.durationDays = snapshot.durationDays;
+                    if (!record.features && snapshot.features) record.features = snapshot.features;
+                    if (!record.serviceId && snapshot.serviceId) record.serviceId = snapshot.serviceId;
+                    if (!record.planId && snapshot.planId) record.planId = snapshot.planId;
+                }
+                if (record.accessWindow) {
+                    if (!record.startDate && record.accessWindow.activatedAt) record.startDate = record.accessWindow.activatedAt;
+                    if (!record.endDate && record.accessWindow.expiresAt) record.endDate = record.accessWindow.expiresAt;
+                }
+                purchases.push(record);
+            }
+        });
+
+        if (purchases.length > 0 || hasMore) {
+            return {
+                success: true,
+                purchases,
+                lastDoc,
+                hasMore,
+            };
+        }
+    } catch {
+        // Direct query on /purchases is restricted by Firestore client security rules or missing index.
+        // Proceed directly to the resilient authoritative pipeline below.
+    }
+
+    // 2. Resilient Fallback: Authoritative fetchUserPurchases + legacy plans + reconciliation
+    try {
+        const purchasesData = await fetchUserPurchases(userId);
+        const legacyPlans = await fetchUserPlans(userId);
+        const unified = reconcileUserPurchases(purchasesData || [], legacyPlans || [], []);
+
+        // Filter by lifecycle status if requested
+        let filtered = unified;
+        if (status === "pending_mandate") {
+            filtered = filtered.filter(isPurchasePendingMandate);
+        } else if (status === "active") {
+            filtered = filtered.filter(isPurchaseActive);
+        } else if (status === "completed") {
+            filtered = filtered.filter(isPurchaseCompleted);
+        }
+
+        // Offset / cursor pagination over the reconciled list
+        let startIndex = 0;
+        if (cursor) {
+            const cursorId = typeof cursor === "string" ? cursor : (cursor?.id || cursor?.purchaseId);
+            const foundIdx = filtered.findIndex((p) => p.id === cursorId || p.purchaseId === cursorId);
+            if (foundIdx !== -1) {
+                startIndex = foundIdx + 1;
+            }
+        }
+
+        const pagePurchases = filtered.slice(startIndex, startIndex + pageSize);
+        const hasMore = startIndex + pageSize < filtered.length;
+        const lastDoc = pagePurchases.length > 0 ? pagePurchases[pagePurchases.length - 1].id : null;
+
+        return {
+            success: true,
+            purchases: pagePurchases,
+            lastDoc,
+            hasMore,
+            totalCount: filtered.length,
+        };
+    } catch (fallbackError) {
+        console.error("Error in fetchUserPurchasesPaginated fallback:", fallbackError);
+        return {
+            success: false,
+            purchases: [],
+            lastDoc: null,
+            hasMore: false,
+            error: fallbackError.message,
+        };
+    }
 };
 
 /**
@@ -497,12 +682,23 @@ export const fetchPurchaseById = async (purchaseId, userId) => {
             if (!userId || data.userId === userId) {
                 const purchaseRecord = { id: docSnap.id, purchaseId: docSnap.id, ...data };
 
-                // Unpack embedded display snapshot first (0 Firestore reads)
-                if (purchaseRecord.display) {
-                    if (!purchaseRecord.imageUrl && purchaseRecord.display.serviceImageUrl) purchaseRecord.imageUrl = purchaseRecord.display.serviceImageUrl;
-                    if (!purchaseRecord.description && purchaseRecord.display.serviceDescription) purchaseRecord.description = purchaseRecord.display.serviceDescription;
-                    if (!purchaseRecord.category && purchaseRecord.display.category) purchaseRecord.category = purchaseRecord.display.category;
-                    if (!purchaseRecord.serviceName && purchaseRecord.display.serviceTitle) purchaseRecord.serviceName = purchaseRecord.display.serviceTitle;
+                // Unpack embedded itemSnapshot or legacy display snapshot first (0 Firestore reads)
+                const snapshot = purchaseRecord.itemSnapshot || purchaseRecord.display;
+                if (snapshot) {
+                    if (!purchaseRecord.imageUrl && (snapshot.imageUrl || snapshot.serviceImageUrl)) purchaseRecord.imageUrl = snapshot.imageUrl || snapshot.serviceImageUrl;
+                    if (!purchaseRecord.description && (snapshot.description || snapshot.serviceDescription)) purchaseRecord.description = snapshot.description || snapshot.serviceDescription;
+                    if (!purchaseRecord.category && snapshot.category) purchaseRecord.category = snapshot.category;
+                    if (!purchaseRecord.serviceName && (snapshot.serviceTitle || snapshot.serviceName)) purchaseRecord.serviceName = snapshot.serviceTitle || snapshot.serviceName;
+                    if (!purchaseRecord.title && (snapshot.serviceTitle || snapshot.serviceName)) purchaseRecord.title = snapshot.serviceTitle || snapshot.serviceName;
+                    if (!purchaseRecord.planName && (snapshot.planTitle || snapshot.planName)) purchaseRecord.planName = snapshot.planTitle || snapshot.planName;
+                    if (!purchaseRecord.durationDays && snapshot.durationDays) purchaseRecord.durationDays = snapshot.durationDays;
+                    if (!purchaseRecord.features && snapshot.features) purchaseRecord.features = snapshot.features;
+                    if (!purchaseRecord.serviceId && snapshot.serviceId) purchaseRecord.serviceId = snapshot.serviceId;
+                    if (!purchaseRecord.planId && snapshot.planId) purchaseRecord.planId = snapshot.planId;
+                }
+                if (purchaseRecord.accessWindow) {
+                    if (!purchaseRecord.startDate && purchaseRecord.accessWindow.activatedAt) purchaseRecord.startDate = purchaseRecord.accessWindow.activatedAt;
+                    if (!purchaseRecord.endDate && purchaseRecord.accessWindow.expiresAt) purchaseRecord.endDate = purchaseRecord.accessWindow.expiresAt;
                 }
 
                 // Enrich missing service metadata if needed (targeted single-doc cache)
@@ -558,6 +754,13 @@ export const fetchPurchaseById = async (purchaseId, userId) => {
                     p.id === pIdStr
             );
             if (planFound) {
+                const sDate = planFound.startDate ? new Date(planFound.startDate?.toDate ? planFound.startDate.toDate() : planFound.startDate) : new Date();
+                let eDate = planFound.endDate ? new Date(planFound.endDate?.toDate ? planFound.endDate.toDate() : planFound.endDate) : null;
+                const durationDays = Number(planFound.durationDays) || 92;
+                if (!eDate || isNaN(eDate.getTime()) || eDate.getTime() <= sDate.getTime() + 24 * 60 * 60 * 1000) {
+                    eDate = new Date(sDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+                }
+
                 return {
                     id: planFound.purchaseId || planFound.paymentId || pIdStr,
                     purchaseId: planFound.purchaseId || planFound.paymentId || pIdStr,
@@ -565,12 +768,13 @@ export const fetchPurchaseById = async (purchaseId, userId) => {
                     serviceName: planFound.serviceName || "NeedMet Digital",
                     planType: planFound.planType || "Monthly",
                     amount: planFound.amount || 0,
+                    durationDays: durationDays,
                     paymentMethod: planFound.paymentType || "FULL",
                     planAccessStatus: planFound.status || "active",
                     status: planFound.status || "active",
-                    startDate: planFound.startDate,
-                    endDate: planFound.endDate,
-                    createdAt: planFound.startDate,
+                    startDate: planFound.startDate || sDate.toISOString(),
+                    endDate: eDate.toISOString(),
+                    createdAt: planFound.startDate || sDate.toISOString(),
                 };
             }
         } catch (err) {
@@ -646,6 +850,140 @@ export const fetchAdminPlans = async () => {
     } catch (error) {
         console.error("Error fetching admin plans from services collection:", error);
         throw error;
+    }
+};
+
+export const normalizeAdminServicePlan = (sDoc) => {
+    const serviceData = typeof sDoc.data === "function" ? sDoc.data() : (sDoc || {});
+    const serviceId = sDoc.id || serviceData.id || serviceData.serviceId;
+
+    const rawPlans = serviceData.plans || serviceData.variants || [];
+    const variants = rawPlans.map((p, idx) => sanitizePlanVariant(p, `Option ${idx + 1}`));
+    const primaryVariant = variants[0] || {};
+
+    return {
+        id: serviceId,
+        planId: serviceId,
+        name: serviceData.title || serviceData.name || "Service Plan",
+        title: serviceData.title || serviceData.name || "Service Plan",
+        description: serviceData.description || "",
+        serviceId: serviceId,
+        serviceName: serviceData.title || serviceData.name || "NeedMet Digital",
+        category: serviceData.category || "Digital Marketing",
+        status: serviceData.status || "published",
+        source: "services",
+        imageUrl: serviceData.imageUrl
+            ? (Array.isArray(serviceData.imageUrl) ? serviceData.imageUrl : [serviceData.imageUrl])
+            : (serviceData.image ? [serviceData.image] : []),
+        isActive: serviceData.isActive !== undefined ? Boolean(serviceData.isActive) : true,
+        price: Number(primaryVariant.price) || Number(serviceData.price) || 0,
+        finalPrice: Number(primaryVariant.finalPrice) || Number(primaryVariant.price) || Number(serviceData.finalPrice) || 0,
+        duration: primaryVariant.duration || serviceData.duration || "3 Months",
+        durationDays: primaryVariant.durationDays || serviceData.durationDays || 92,
+        tag: primaryVariant.tag || serviceData.badge || serviceData.tag || "",
+        badge: serviceData.badge || primaryVariant.tag || "",
+        variants: variants,
+        plans: variants,
+        datesConfig: serviceData.datesConfig || null,
+        notes: serviceData.notes || "",
+        createdBy: serviceData.createdBy || "Admin",
+        creatorEmail: serviceData.creatorEmail || "",
+        createdAt: serviceData.createdAt || null,
+        updatedAt: serviceData.updatedAt || null,
+        updatedBy: serviceData.updatedBy || "",
+    };
+};
+
+/**
+ * Server-side cursor-paginated service plans retrieval.
+ */
+export const fetchAdminPlansPaginated = async ({
+    status = "all",
+    search = "",
+    category = "all",
+    pageSize = 10,
+    cursor = null,
+} = {}) => {
+    try {
+        const coll = collection(db, "services");
+        const fetchLimit = pageSize + 1;
+        let constraints = [];
+
+        if (status && status !== "all") {
+            constraints.push(where("status", "==", status));
+        }
+
+        if (category && category !== "all") {
+            constraints.push(where("category", "==", category));
+        }
+
+        constraints.push(orderBy("createdAt", "desc"));
+
+        if (cursor) {
+            constraints.push(startAfter(cursor));
+        }
+
+        constraints.push(limit(fetchLimit));
+
+        let snap;
+        try {
+            snap = await getDocs(query(coll, ...constraints));
+        } catch (qErr) {
+            console.warn("Paginated services query fallback:", qErr.message);
+            const fallbackConstraints = cursor ? [startAfter(cursor), limit(fetchLimit)] : [limit(fetchLimit)];
+            snap = await getDocs(query(coll, ...fallbackConstraints));
+        }
+
+        const docs = snap.docs;
+        const hasMore = docs.length > pageSize;
+        const resultDocs = hasMore ? docs.slice(0, pageSize) : docs;
+        const lastDoc = resultDocs.length > 0 ? resultDocs[resultDocs.length - 1] : null;
+
+        let plans = resultDocs.map(normalizeAdminServicePlan);
+
+        // Search in-page if search term provided
+        if (search && search.trim()) {
+            const q = search.trim().toLowerCase();
+            plans = plans.filter((p) =>
+                (p.title && p.title.toLowerCase().includes(q)) ||
+                (p.category && p.category.toLowerCase().includes(q))
+            );
+        }
+
+        return {
+            success: true,
+            plans,
+            lastDoc,
+            hasMore,
+        };
+    } catch (error) {
+        console.error("Error in fetchAdminPlansPaginated:", error);
+        throw error;
+    }
+};
+
+/**
+ * Returns service count aggregates for admin dashboard metrics.
+ */
+export const fetchAdminPlansMetrics = async () => {
+    try {
+        const coll = collection(db, "services");
+        const [totalSnap, publishedSnap, draftSnap, archivedSnap] = await Promise.all([
+            getCountFromServer(coll),
+            getCountFromServer(query(coll, where("status", "==", "published"))),
+            getCountFromServer(query(coll, where("status", "==", "draft"))),
+            getCountFromServer(query(coll, where("status", "==", "archived"))),
+        ]);
+
+        return {
+            total: totalSnap.data().count,
+            published: publishedSnap.data().count,
+            draft: draftSnap.data().count,
+            archived: archivedSnap.data().count,
+        };
+    } catch (err) {
+        console.error("Error fetching admin plan metrics:", err);
+        return { total: 0, published: 0, draft: 0, archived: 0 };
     }
 };
 

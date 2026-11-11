@@ -83,6 +83,10 @@ export default function usePurchasedPlanDetails() {
     const pId = purchase.id || purchase.purchaseId || purchase.orderId || purchase.razorpayOrderId;
     setFeedbackMessage(null);
 
+    const sTitle = purchase.itemSnapshot?.serviceTitle || purchase.serviceName || purchase.title || "";
+    const pTitle = purchase.itemSnapshot?.planTitle || purchase.planName || purchase.planTitle || "";
+    const upAmt = purchase.pricing?.upfrontAmount || purchase.upfrontPayment?.amount || purchase.amount || 0;
+
     await resumeMandateAuthorization({
       purchaseId: pId,
       subscriptionId: purchase.mandate?.subscriptionId || null,
@@ -90,7 +94,7 @@ export default function usePurchasedPlanDetails() {
       onSuccess: () => {
         clearUserPurchasesCache(currentUser?.uid);
         navigate(
-          `/checkout/success?paymentType=MANDATE_AUTHORIZED&purchaseId=${encodeURIComponent(pId)}&serviceName=${encodeURIComponent(purchase.serviceName || "")}&planName=${encodeURIComponent(purchase.planName || "")}&amount=${encodeURIComponent(purchase.pricing?.upfrontAmount || purchase.amount || 0)}`
+          `/checkout/success?paymentType=MANDATE_AUTHORIZED&purchaseId=${encodeURIComponent(pId)}&serviceName=${encodeURIComponent(sTitle)}&planName=${encodeURIComponent(pTitle)}&amount=${encodeURIComponent(upAmt)}`
         );
       },
       onFailure: (err) => {
@@ -113,7 +117,11 @@ export default function usePurchasedPlanDetails() {
   // Format date helper scoped to current purchase
   const formatDate = useCallback(
     (dateVal) => {
-      const fallback = purchase?.createdAt || purchase?.startDate || Date.now();
+      const fallback =
+        purchase?.accessWindow?.activatedAt ||
+        purchase?.createdAt ||
+        purchase?.startDate ||
+        Date.now();
       return formatPlanDate(dateVal, fallback);
     },
     [purchase]
@@ -121,11 +129,15 @@ export default function usePurchasedPlanDetails() {
 
   // Derived calculations
   const isEmi = useMemo(() => checkIsEmi(purchase), [purchase]);
-  const isMandateAuthorized = purchase?.mandate?.status === "authorized";
+  const mandateStatus = String(purchase?.mandate?.status || "").toUpperCase();
+  const isMandateAuthorized = mandateStatus === "AUTHORIZED";
+  const statusUpper = String(purchase?.status || "").toUpperCase();
   const isPlanActive =
-    (purchase?.planAccessStatus === "active" || purchase?.status === "active") &&
+    (statusUpper === "ACTIVE" || purchase?.planAccessStatus === "active" || purchase?.status === "active") &&
     (!isEmi || isMandateAuthorized);
-  const isMandateNeeded = isEmi && !isMandateAuthorized;
+  const isMandateNeeded =
+    statusUpper === "PENDING_MANDATE" ||
+    (isEmi && !isMandateAuthorized && statusUpper !== "ACTIVE");
   const statusConfig = useMemo(() => getStatusConfig(purchase), [purchase]);
 
   const financials = useMemo(
@@ -134,12 +146,14 @@ export default function usePurchasedPlanDetails() {
   );
   const pricing = purchase?.pricing || {};
   const upfrontPaid = Number(
-    financials.upfrontPaid ?? pricing.upfrontAmount ?? purchase?.upfrontAmount ?? 0
+    financials.upfrontPaid ?? pricing.upfrontAmount ?? purchase?.upfrontPayment?.amount ?? purchase?.upfrontAmount ?? 0
   );
   const totalCycles = Number(
-    pricing.totalCycles ?? purchase?.mandate?.totalCount ?? 0
+    purchase?.mandate?.totalCycles ?? pricing.totalCycles ?? purchase?.mandate?.totalCount ?? 0
   );
-  const emiAmount = Number(pricing.emiAmount ?? 0);
+  const emiAmount = Number(
+    purchase?.mandate?.emiAmount ?? pricing.emiAmount ?? 0
+  );
   const verifiedPaid = Number(financials.verifiedPaid ?? upfrontPaid);
   const purchaseRef = useMemo(() => derivePurchaseReference(purchase), [purchase]);
 

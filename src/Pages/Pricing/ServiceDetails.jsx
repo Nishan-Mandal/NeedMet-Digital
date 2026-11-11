@@ -158,6 +158,7 @@ export default function ServiceDetails() {
         serviceId={cashContext?.serviceId}
         planId={cashContext?.planId}
         couponCode={cashContext?.couponCode}
+        serviceDetails={cashContext?.serviceDetails}
       />
 
       {/* Main Content Layout */}

@@ -20,27 +20,32 @@ import {
 export default function PlanFinancialOverview({ purchase }) {
   if (!purchase) return null;
 
+  const durationDays = deriveDurationDays(purchase);
   const financials = calculateAuthoritativeFinancials(purchase);
   const { isEmi, planTotal, upfrontPaid, verifiedPaid, remainingBalance, paidPercent } = financials;
 
+  const statusUpper = String(purchase.status || "").toUpperCase();
   const isFullPaid =
     !isEmi &&
     (financials.isFullPaidCompleted ||
       financials.isUpfrontPaid ||
+      statusUpper === "COMPLETED" ||
+      statusUpper === "ACTIVE" ||
       purchase.status === "completed" ||
       purchase.status === "active" ||
       purchase.planAccessStatus === "active");
-  const rawCycles = Number(purchase.pricing?.totalCycles ?? purchase.mandate?.totalCount ?? 0);
+  const rawCycles = Number(purchase.mandate?.totalCycles ?? purchase.pricing?.totalCycles ?? purchase.mandate?.totalCount ?? 0);
   const totalCycles = rawCycles > 0 ? rawCycles : (durationDays > 30 ? Math.round(durationDays / 30) : 3);
   const emiAmount = Number(
-    purchase.pricing?.emiAmount ??
+    purchase.mandate?.emiAmount ??
+      purchase.pricing?.emiAmount ??
       (totalCycles > 0 && remainingBalance > 0
-        ? Math.round((remainingBalance / totalCycles) * 100) / 100
-        : 566.38)
+        ? remainingBalance / totalCycles
+        : 0)
   );
 
   const baseDate = getSafeDate(
-    purchase.createdAt || purchase.startDate,
+    purchase.accessWindow?.activatedAt || purchase.createdAt || purchase.startDate,
     extractDateFromId(purchase.id || purchase.orderId) || new Date()
   );
   const purchasedOnStr = formatPlanDate(baseDate);
@@ -49,15 +54,15 @@ export default function PlanFinancialOverview({ purchase }) {
     <div className="rounded-2xl border border-gray-200/90 bg-white p-4 sm:p-5 md:p-6 shadow-xs text-left space-y-4 sm:space-y-5">
       {/* Card Header */}
       <div className="flex items-center justify-between gap-3 pb-3 border-b border-gray-100">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-[#0F5C3E]">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-[#0F5C3E]">
             <span className="material-symbols-outlined text-xl">account_balance_wallet</span>
           </div>
-          <div>
-            <h2 className="font-heading font-bold text-black text-sm sm:text-base tracking-tight">
+          <div className="min-w-0 flex-1">
+            <h2 className="font-heading font-bold text-slate-900 text-sm sm:text-base tracking-tight truncate">
               {isEmi ? "Financial Overview" : "Payment Overview"}
             </h2>
-            <p className="text-[11px] sm:text-xs text-black font-medium">
+            <p className="text-[11px] sm:text-xs text-slate-500 font-normal truncate">
               {isEmi
                 ? "Investment breakdown & installment terms"
                 : "Verified transaction summary"}
@@ -66,17 +71,17 @@ export default function PlanFinancialOverview({ purchase }) {
         </div>
 
         {isEmi ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 font-heading text-xs font-bold text-emerald-800">
+          <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 font-heading text-xs font-bold text-emerald-800">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             {paidPercent}% Settled
           </span>
         ) : isFullPaid ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 font-heading text-xs font-bold text-emerald-800">
+          <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 font-heading text-xs font-bold text-emerald-800">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             Paid in Full
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200/80 px-2.5 py-1 font-heading text-xs font-bold text-amber-800">
+          <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200/80 px-2.5 py-1 font-heading text-xs font-bold text-amber-800">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
             Payment Incomplete
           </span>
@@ -90,10 +95,10 @@ export default function PlanFinancialOverview({ purchase }) {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
             {/* Total Investment */}
             <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3 sm:p-3.5 space-y-1">
-              <span className="text-[11px] font-semibold text-black block uppercase tracking-wider">
+              <span className="text-[11px] font-semibold text-slate-500 block uppercase tracking-wider">
                 Total Investment
               </span>
-              <span className="font-heading font-bold text-base sm:text-lg md:text-xl text-black tracking-tight tabular-nums block">
+              <span className="font-heading font-bold text-base sm:text-lg md:text-xl text-slate-900 tracking-tight tabular-nums block">
                 {formatCurrency(planTotal)}
               </span>
             </div>
@@ -111,10 +116,10 @@ export default function PlanFinancialOverview({ purchase }) {
 
             {/* Remaining Balance */}
             <div className="col-span-2 sm:col-span-1 rounded-xl border border-gray-100 bg-gray-50/70 p-3 sm:p-3.5 space-y-1">
-              <span className="text-[11px] font-semibold text-black block uppercase tracking-wider">
+              <span className="text-[11px] font-semibold text-slate-500 block uppercase tracking-wider">
                 Remaining Balance
               </span>
-              <span className="font-heading font-bold text-base sm:text-lg md:text-xl text-black tracking-tight tabular-nums block">
+              <span className="font-heading font-bold text-base sm:text-lg md:text-xl text-slate-900 tracking-tight tabular-nums block">
                 {remainingBalance > 0 ? formatCurrency(remainingBalance) : "₹0 (Paid)"}
               </span>
             </div>
@@ -123,7 +128,7 @@ export default function PlanFinancialOverview({ purchase }) {
           {/* Payment Progress Bar */}
           <div className="space-y-1.5 pt-0.5">
             <div className="flex items-center justify-between text-xs font-semibold">
-              <span className="text-black font-medium">Payment Completion</span>
+              <span className="text-slate-600 font-medium">Payment Completion</span>
               <span className="font-heading text-emerald-800 font-bold tracking-tight">
                 {formatCurrency(verifiedPaid)} of {formatCurrency(planTotal)}
               </span>
@@ -186,8 +191,8 @@ export default function PlanFinancialOverview({ purchase }) {
       <div className="divide-y divide-gray-100 border-t border-gray-100 pt-1 space-y-0 text-xs sm:text-sm">
         {/* Payment Amount */}
         <div className="flex items-center justify-between py-2.5 gap-3">
-          <div className="flex items-center gap-2 text-black font-medium min-w-0">
-            <span className="material-symbols-outlined text-gray-600 text-lg shrink-0">
+          <div className="flex items-center gap-2 text-slate-600 font-medium min-w-0">
+            <span className="material-symbols-outlined text-slate-500 text-lg shrink-0">
               payments
             </span>
             <span className="truncate">
@@ -205,13 +210,13 @@ export default function PlanFinancialOverview({ purchase }) {
         {/* Installment Plan (ONLY if EMI) */}
         {isEmi && (
           <div className="flex items-center justify-between py-2.5 gap-3">
-            <div className="flex items-center gap-2 text-black font-medium min-w-0">
-              <span className="material-symbols-outlined text-gray-600 text-lg shrink-0">
+            <div className="flex items-center gap-2 text-slate-600 font-medium min-w-0">
+              <span className="material-symbols-outlined text-slate-500 text-lg shrink-0">
                 calendar_month
               </span>
               <span className="truncate">Monthly Installments</span>
             </div>
-            <div className="font-heading font-bold text-black shrink-0 text-right tabular-nums">
+            <div className="font-heading font-bold text-slate-900 shrink-0 text-right tabular-nums">
               {totalCycles} × {formatCurrency(emiAmount)}/mo
             </div>
           </div>
@@ -219,26 +224,26 @@ export default function PlanFinancialOverview({ purchase }) {
 
         {/* Delivery Window */}
         <div className="flex items-center justify-between py-2.5 gap-3">
-          <div className="flex items-center gap-2 text-black font-medium min-w-0">
-            <span className="material-symbols-outlined text-gray-600 text-lg shrink-0">
+          <div className="flex items-center gap-2 text-slate-600 font-medium min-w-0">
+            <span className="material-symbols-outlined text-slate-500 text-lg shrink-0">
               schedule
             </span>
             <span className="truncate">Delivery Period</span>
           </div>
-          <div className="font-heading font-bold text-black shrink-0 text-right">
+          <div className="font-heading font-bold text-slate-900 shrink-0 text-right">
             {durationDays} Days Execution
           </div>
         </div>
 
         {/* Enrolled Date */}
         <div className="flex items-center justify-between py-2.5 gap-3">
-          <div className="flex items-center gap-2 text-black font-medium min-w-0">
-            <span className="material-symbols-outlined text-gray-600 text-lg shrink-0">
+          <div className="flex items-center gap-2 text-slate-600 font-medium min-w-0">
+            <span className="material-symbols-outlined text-slate-500 text-lg shrink-0">
               event
             </span>
             <span className="truncate">Enrolled On</span>
           </div>
-          <div className="font-heading font-semibold text-black shrink-0 text-right">
+          <div className="font-heading font-semibold text-slate-900 shrink-0 text-right">
             {purchasedOnStr}
           </div>
         </div>

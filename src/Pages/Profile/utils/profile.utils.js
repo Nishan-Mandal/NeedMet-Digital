@@ -1,6 +1,7 @@
 /**
  * Derives tamper-proof, authoritative financial summary directly from verified transaction records.
  * Solves stale stored balances and non-atomic webhook increments.
+ * Fully supports the new purchases data model (with itemSnapshot, accessWindow, mandate.installments, etc.)
  */
 export function calculateAuthoritativeFinancials(purchase) {
   if (!purchase) {
@@ -13,6 +14,7 @@ export function calculateAuthoritativeFinancials(purchase) {
       remainingBalance: 0,
       paidPercent: 0,
       installments: [],
+      isFullPaidCompleted: false,
     };
   }
 
@@ -24,29 +26,47 @@ export function calculateAuthoritativeFinancials(purchase) {
   const pricing = purchase.pricing || {};
   const planTotal = Number(pricing.finalPrice ?? purchase.amount ?? purchase.price ?? 0);
 
+  const statusUpper = String(purchase.status || "").toUpperCase();
+
   // Upfront verification check
-  const upfrontStatus = purchase.upfrontPayment?.status || (purchase.paymentId ? "captured" : "pending");
+  const upfrontStatus = String(purchase.upfrontPayment?.status || "").toLowerCase();
   const isUpfrontPaid =
+    Boolean(purchase.upfrontPayment?.paymentId) ||
+    Boolean(purchase.paymentId) ||
     upfrontStatus === "captured" ||
     upfrontStatus === "success" ||
-    Boolean(purchase.paymentId) ||
-    Boolean(purchase.upfrontPayment?.paymentId);
+    statusUpper === "ACTIVE" ||
+    statusUpper === "COMPLETED" ||
+    statusUpper === "PENDING_MANDATE";
 
-  const upfrontPaid = Number(
+  const rawUpfront =
     pricing.upfrontAmount ??
-      purchase.upfrontAmount ??
-      purchase.upfrontPayment?.amount ??
-      (isEmi ? Math.round(planTotal * 0.15 * 100) / 100 : planTotal)
-  );
+    purchase.upfrontPayment?.amount ??
+    purchase.upfrontAmount;
 
-  // Verified installments sum
-  const installments = Array.isArray(pricing.installments) ? pricing.installments : [];
+  // Take upfront amount directly from the DB record without recalculating or rounding
+  const upfrontPaid = Number(rawUpfront ?? (isEmi ? 0 : planTotal) ?? 0);
+
+  // Verified installments sum (new model stores installments in purchase.mandate.installments)
+  const installments = Array.isArray(purchase.mandate?.installments)
+    ? purchase.mandate.installments
+    : Array.isArray(pricing.installments)
+    ? pricing.installments
+    : [];
+
   const verifiedInstallmentsSum = installments
-    .filter((inst) => inst.status === "paid" || inst.status === "completed")
+    .filter((inst) => {
+      const s = String(inst.status || "").toUpperCase();
+      return s === "PAID" || s === "COMPLETED";
+    })
     .reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
 
   const isFullPaidCompleted =
-    !isEmi && (purchase.status === "completed" || purchase.planAccessStatus === "active");
+    !isEmi &&
+    (statusUpper === "COMPLETED" ||
+      statusUpper === "ACTIVE" ||
+      purchase.status === "completed" ||
+      purchase.planAccessStatus === "active");
 
   const verifiedPaid = isEmi
     ? (isUpfrontPaid ? upfrontPaid : 0) + verifiedInstallmentsSum
@@ -56,7 +76,17 @@ export function calculateAuthoritativeFinancials(purchase) {
     ? upfrontPaid
     : 0;
 
-  const remainingBalance = Math.max(0, Math.round((planTotal - verifiedPaid) * 100) / 100);
+  // Take remaining amount directly from DB pricing.remainingAmount, never rounding up
+  const remainingBalance = isEmi
+    ? Number(
+        pricing.remainingAmount !== undefined && pricing.remainingAmount !== null
+          ? pricing.remainingAmount
+          : Math.max(0, planTotal - verifiedPaid)
+      )
+    : isFullPaidCompleted
+    ? 0
+    : planTotal;
+
   const paidPercent = planTotal > 0 ? Math.min(100, Math.round((verifiedPaid / planTotal) * 100)) : 0;
 
   return {
@@ -68,6 +98,7 @@ export function calculateAuthoritativeFinancials(purchase) {
     remainingBalance,
     paidPercent,
     installments,
+    isFullPaidCompleted,
   };
 }
 
@@ -95,29 +126,60 @@ export function reconcileUserPurchases(purchasesData = [], plansData = [], servi
 
   // 1. Process authoritative purchases collection records first
   purchasesData.forEach((purchase, idx) => {
-    // Ignore unfulfilled / abandoned checkout orders where payment was never captured
-    const upfrontStatus = purchase.upfrontPayment?.status;
+    // Check authoritative lifecycle status and upfront payment
+    const statusUpper = String(purchase.status || "").toUpperCase();
+    const upfrontStatus = String(purchase.upfrontPayment?.status || "").toLowerCase();
     const isPaidOrActive =
+      statusUpper === "ACTIVE" ||
+      statusUpper === "COMPLETED" ||
+      statusUpper === "PENDING_MANDATE" ||
       purchase.status === "active" ||
       purchase.status === "completed" ||
       purchase.planAccessStatus === "active" ||
       purchase.planAccessStatus === "completed" ||
       upfrontStatus === "captured" ||
       upfrontStatus === "success" ||
+      Boolean(purchase.upfrontPayment?.paymentId) ||
       Boolean(purchase.primaryPaymentId) ||
-      Boolean(purchase.paymentId) ||
-      Boolean(purchase.upfrontPayment?.paymentId);
+      Boolean(purchase.paymentId);
 
-    if (!isPaidOrActive || purchase.status === "cancelled" || purchase.planAccessStatus === "cancelled" || purchase.status === "failed") {
+    if (
+      !isPaidOrActive ||
+      statusUpper === "CANCELLED" ||
+      statusUpper === "FAILED" ||
+      statusUpper === "REFUNDED" ||
+      purchase.status === "cancelled" ||
+      purchase.planAccessStatus === "cancelled" ||
+      purchase.status === "failed"
+    ) {
       return;
     }
 
-    const ids = extractIds(purchase);
+    // Hydrate itemSnapshot fields to top level if missing
+    const snapshot = purchase.itemSnapshot || purchase.display;
+    const hydrated = { ...purchase };
+    if (snapshot) {
+      if (!hydrated.serviceTitle) hydrated.serviceTitle = snapshot.serviceTitle || snapshot.serviceName;
+      if (!hydrated.serviceName) hydrated.serviceName = snapshot.serviceTitle || snapshot.serviceName;
+      if (!hydrated.planTitle) hydrated.planTitle = snapshot.planTitle || snapshot.planName;
+      if (!hydrated.planName) hydrated.planName = snapshot.planTitle || snapshot.planName;
+      if (!hydrated.imageUrl) hydrated.imageUrl = snapshot.imageUrl || snapshot.serviceImageUrl;
+      if (!hydrated.category) hydrated.category = snapshot.category;
+      if (!hydrated.durationDays && snapshot.durationDays) hydrated.durationDays = snapshot.durationDays;
+      if (!hydrated.features && snapshot.features) hydrated.features = snapshot.features;
+    }
+
+    if (purchase.accessWindow) {
+      if (!hydrated.startDate && purchase.accessWindow.activatedAt) hydrated.startDate = purchase.accessWindow.activatedAt;
+      if (!hydrated.endDate && purchase.accessWindow.expiresAt) hydrated.endDate = purchase.accessWindow.expiresAt;
+    }
+
+    const ids = extractIds(hydrated);
     let canonicalKey = ids.find((id) => knownIdToKey.has(id));
     if (canonicalKey) {
       canonicalKey = knownIdToKey.get(canonicalKey);
     } else {
-      canonicalKey = purchase.id || purchase.purchaseId || purchase.orderId || `purchase-${idx}`;
+      canonicalKey = hydrated.id || hydrated.purchaseId || hydrated.orderId || `purchase-${idx}`;
     }
 
     ids.forEach((id) => knownIdToKey.set(id, canonicalKey));
@@ -125,7 +187,7 @@ export function reconcileUserPurchases(purchasesData = [], plansData = [], servi
 
     if (!purchaseMap.has(canonicalKey)) {
       purchaseMap.set(canonicalKey, {
-        ...purchase,
+        ...hydrated,
         id: canonicalKey,
         purchaseId: canonicalKey,
       });
@@ -133,9 +195,9 @@ export function reconcileUserPurchases(purchasesData = [], plansData = [], servi
       const existing = purchaseMap.get(canonicalKey);
       purchaseMap.set(canonicalKey, {
         ...existing,
-        ...purchase,
-        pricing: { ...(existing.pricing || {}), ...(purchase.pricing || {}) },
-        mandate: { ...(existing.mandate || {}), ...(purchase.mandate || {}) },
+        ...hydrated,
+        pricing: { ...(existing.pricing || {}), ...(hydrated.pricing || {}) },
+        mandate: { ...(existing.mandate || {}), ...(hydrated.mandate || {}) },
       });
     }
   });
@@ -150,18 +212,33 @@ export function reconcileUserPurchases(purchasesData = [], plansData = [], servi
       const existing = purchaseMap.get(matchedKey);
       if (existing) {
         if (!existing.startDate && planItem.startDate) existing.startDate = planItem.startDate;
-        if (!existing.endDate && planItem.endDate) existing.endDate = planItem.endDate;
+        if (!existing.endDate && planItem.endDate) {
+          const s = new Date(existing.startDate || planItem.startDate);
+          const e = new Date(planItem.endDate);
+          if (!isNaN(s.getTime()) && !isNaN(e.getTime()) && e.getTime() > s.getTime() + 24 * 60 * 60 * 1000) {
+            existing.endDate = planItem.endDate;
+          }
+        }
       }
     } else {
       // Check if plan matches an existing purchase by planName and serviceName
       const alreadyRepresented = Array.from(purchaseMap.values()).some((p) => {
-        const samePlan = p.planName && planItem.planName && p.planName.toLowerCase() === planItem.planName.toLowerCase();
-        const sameService = p.serviceName && planItem.serviceName && p.serviceName.toLowerCase() === planItem.serviceName.toLowerCase();
-        return samePlan && sameService && p.status === (planItem.status || "active");
+        const pPlan = p.itemSnapshot?.planTitle || p.planName;
+        const pService = p.itemSnapshot?.serviceTitle || p.serviceName;
+        const samePlan = pPlan && planItem.planName && pPlan.toLowerCase() === planItem.planName.toLowerCase();
+        const sameService = pService && planItem.serviceName && pService.toLowerCase() === planItem.serviceName.toLowerCase();
+        return samePlan && sameService && (p.status === (planItem.status || "active") || String(p.status).toUpperCase() === "ACTIVE");
       });
 
       if (!alreadyRepresented) {
         const newKey = planItem.purchaseId || planItem.paymentId || `user-plan-${idx}`;
+        const sDate = planItem.startDate ? new Date(planItem.startDate?.toDate ? planItem.startDate.toDate() : planItem.startDate) : new Date();
+        let eDate = planItem.endDate ? new Date(planItem.endDate?.toDate ? planItem.endDate.toDate() : planItem.endDate) : null;
+        const durationDays = Number(planItem.durationDays) || 92;
+        if (!eDate || isNaN(eDate.getTime()) || eDate.getTime() <= sDate.getTime() + 24 * 60 * 60 * 1000) {
+          eDate = new Date(sDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+        }
+
         const newPurchase = {
           id: newKey,
           purchaseId: newKey,
@@ -169,12 +246,13 @@ export function reconcileUserPurchases(purchasesData = [], plansData = [], servi
           serviceName: planItem.serviceName || "NeedMet Digital",
           planType: planItem.planType || "Monthly",
           amount: planItem.amount || 0,
+          durationDays: durationDays,
           paymentMethod: planItem.paymentType || "FULL",
           planAccessStatus: planItem.status || "active",
           status: planItem.status || "active",
-          startDate: planItem.startDate,
-          endDate: planItem.endDate,
-          createdAt: planItem.startDate,
+          startDate: planItem.startDate || sDate.toISOString(),
+          endDate: eDate.toISOString(),
+          createdAt: planItem.startDate || sDate.toISOString(),
         };
         purchaseMap.set(newKey, newPurchase);
         ids.forEach((id) => knownIdToKey.set(id, newKey));
@@ -192,13 +270,15 @@ export function reconcileUserPurchases(purchasesData = [], plansData = [], servi
     });
 
     purchaseMap.forEach((p) => {
+      const pServiceId = p.itemSnapshot?.serviceId || p.serviceId;
+      const pTitle = p.itemSnapshot?.serviceTitle || p.title || p.serviceName;
       const match =
-        serviceMap.get(String(p.serviceId || "").toLowerCase()) ||
-        serviceMap.get(String(p.title || p.serviceName || "").trim().toLowerCase()) ||
+        serviceMap.get(String(pServiceId || "").toLowerCase()) ||
+        serviceMap.get(String(pTitle || "").trim().toLowerCase()) ||
         Array.from(serviceMap.values()).find((s) => {
           const sTitle = (s.title || "").toLowerCase();
-          const pTitle = (p.title || p.serviceName || "").toLowerCase();
-          return sTitle && pTitle && (sTitle.includes(pTitle) || pTitle.includes(sTitle));
+          const target = (pTitle || "").toLowerCase();
+          return sTitle && target && (sTitle.includes(target) || target.includes(sTitle));
         });
 
       if (match) {
@@ -219,12 +299,20 @@ export function reconcileUserPurchases(purchasesData = [], plansData = [], servi
  */
 export function isPurchasePendingMandate(p) {
   if (!p) return false;
+  const statusUpper = String(p.status || "").toUpperCase();
+  if (statusUpper === "PENDING_MANDATE") return true;
+
   const isEmi =
     String(p.paymentMethod || p.paymentType || "").toUpperCase() === "EMI" ||
     p.isEmi === true ||
     Boolean(p.mandate);
-  const isMandateAuthorized = p.mandate?.status === "authorized";
-  const isPlanActive = p.planAccessStatus === "active" || p.status === "active";
+  const mandateStatus = String(p.mandate?.status || "").toUpperCase();
+  const isMandateAuthorized = mandateStatus === "AUTHORIZED";
+  const isPlanActive =
+    statusUpper === "ACTIVE" ||
+    p.planAccessStatus === "active" ||
+    p.status === "active";
+
   return isEmi && !isMandateAuthorized && !isPlanActive;
 }
 
@@ -233,12 +321,16 @@ export function isPurchasePendingMandate(p) {
  */
 export function isPurchaseActive(p) {
   if (!p) return false;
+  const statusUpper = String(p.status || "").toUpperCase();
   const isEmi =
     String(p.paymentMethod || p.paymentType || "").toUpperCase() === "EMI" ||
     p.isEmi === true ||
     Boolean(p.mandate);
-  const isMandateAuthorized = p.mandate?.status === "authorized";
-  if (isEmi && !isMandateAuthorized) return false;
+  const mandateStatus = String(p.mandate?.status || "").toUpperCase();
+  const isMandateAuthorized = mandateStatus === "AUTHORIZED";
+
+  if (isEmi && p.mandate && !isMandateAuthorized) return false;
+  if (statusUpper === "ACTIVE") return true;
   return p.planAccessStatus === "active" || p.status === "active";
 }
 
@@ -247,7 +339,12 @@ export function isPurchaseActive(p) {
  */
 export function isPurchaseCompleted(p) {
   if (!p) return false;
-  return p.status === "completed" || p.planAccessStatus === "completed";
+  const statusUpper = String(p.status || "").toUpperCase();
+  return (
+    statusUpper === "COMPLETED" ||
+    p.status === "completed" ||
+    p.planAccessStatus === "completed"
+  );
 }
 
 /**
@@ -255,6 +352,8 @@ export function isPurchaseCompleted(p) {
  */
 export function isPurchaseProcessing(p) {
   if (!p) return false;
+  const statusUpper = String(p.status || "").toUpperCase();
+  if (statusUpper === "PENDING_PAYMENT" || statusUpper === "PENDING") return true;
   return !isPurchaseActive(p) && !isPurchasePendingMandate(p) && !isPurchaseCompleted(p);
 }
 
@@ -275,9 +374,9 @@ export function filterPurchases(purchases = [], filter = "all", searchQuery = ""
 
     if (searchQuery && searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      const planName = (p.planName || "").toLowerCase();
-      const serviceName = (p.serviceName || "").toLowerCase();
-      const refId = String(p.id || p.purchaseId || "").toLowerCase();
+      const planName = String(p.itemSnapshot?.planTitle || p.planName || p.planTitle || "").toLowerCase();
+      const serviceName = String(p.itemSnapshot?.serviceTitle || p.serviceName || p.serviceTitle || p.title || "").toLowerCase();
+      const refId = String(p.id || p.purchaseId || p.orderId || "").toLowerCase();
       if (!planName.includes(query) && !serviceName.includes(query) && !refId.includes(query)) {
         return false;
       }

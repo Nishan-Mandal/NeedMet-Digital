@@ -21,9 +21,15 @@ export default function MandateActionAlert({
             <p className="text-xs text-amber-900 leading-relaxed max-w-xl">
               Your down payment of{" "}
               <strong className="font-heading">
-                ₹{Number(upfrontPaid || 0).toLocaleString("en-IN")}
+                ₹{Number(upfrontPaid || 0).toLocaleString("en-IN", {
+                  minimumFractionDigits: Number(upfrontPaid || 0) % 1 !== 0 ? 2 : 0,
+                  maximumFractionDigits: 2,
+                })}
               </strong>{" "}
-              is verified. Please authorize your AutoPay to activate ongoing service deliverables and schedule recurring installment payments ({totalCycles} cycles of ₹{Number(emiAmount || 0).toLocaleString("en-IN")}/mo).
+              is verified. Please authorize your AutoPay to activate ongoing service deliverables and schedule recurring installment payments ({totalCycles} cycles of ₹{Number(emiAmount || 0).toLocaleString("en-IN", {
+                minimumFractionDigits: Number(emiAmount || 0) % 1 !== 0 ? 2 : 0,
+                maximumFractionDigits: 2,
+              })}/mo).
             </p>
           </div>
         </div>
