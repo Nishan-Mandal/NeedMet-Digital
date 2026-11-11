@@ -66,12 +66,16 @@ export default function SuccessPage() {
   // Derived display values
   const serviceName =
     paramServiceName ||
+    purchaseDetails?.itemSnapshot?.serviceTitle ||
     purchaseDetails?.serviceName ||
+    purchaseDetails?.title ||
     purchaseDetails?.service?.title ||
     "NeedMet Digital Service";
   const planName =
     paramPlanName ||
+    purchaseDetails?.itemSnapshot?.planTitle ||
     purchaseDetails?.planName ||
+    purchaseDetails?.planTitle ||
     purchaseDetails?.planType ||
     "Selected Plan";
 
@@ -79,6 +83,7 @@ export default function SuccessPage() {
     paramAmount !== null && paramAmount !== undefined && paramAmount !== ""
       ? Number(paramAmount)
       : (purchaseDetails?.pricing?.upfrontAmount ||
+          purchaseDetails?.upfrontPayment?.amount ||
           purchaseDetails?.upfrontAmount ||
           purchaseDetails?.amount ||
           0);

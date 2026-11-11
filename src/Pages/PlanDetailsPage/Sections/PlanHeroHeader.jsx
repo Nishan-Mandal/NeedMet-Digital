@@ -13,15 +13,18 @@ export default function PlanHeroHeader({
   const durationDays = deriveDurationDays(purchase);
 
   const serviceName =
+    purchase.itemSnapshot?.serviceTitle ||
     purchase.serviceName ||
     purchase.title ||
     purchase.serviceTitle ||
     purchase.service?.title ||
     purchase.display?.serviceTitle ||
+    purchase.itemSnapshot?.category ||
     purchase.category ||
     "NeedMet Digital Service";
 
   const planName =
+    purchase.itemSnapshot?.planTitle ||
     purchase.planName ||
     purchase.planTitle ||
     purchase.display?.planName ||

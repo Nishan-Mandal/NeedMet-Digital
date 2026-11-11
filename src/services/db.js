@@ -307,19 +307,31 @@ export const fetchUserPurchases = async (userId, { forceRefresh = false } = {}) 
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((docSnap) => {
             const data = docSnap.data();
-            const upfrontStatus = data.upfrontPayment?.status;
+            const statusUpper = String(data.status || "").toUpperCase();
+            const upfrontStatus = String(data.upfrontPayment?.status || "").toLowerCase();
             const isPaidOrActive =
+                statusUpper === "ACTIVE" ||
+                statusUpper === "COMPLETED" ||
+                statusUpper === "PENDING_MANDATE" ||
                 data.status === "active" ||
                 data.status === "completed" ||
                 data.planAccessStatus === "active" ||
                 data.planAccessStatus === "completed" ||
                 upfrontStatus === "captured" ||
                 upfrontStatus === "success" ||
+                Boolean(data.upfrontPayment?.paymentId) ||
                 Boolean(data.primaryPaymentId) ||
-                Boolean(data.paymentId) ||
-                Boolean(data.upfrontPayment?.paymentId);
+                Boolean(data.paymentId);
 
-            if (isPaidOrActive && data.status !== "cancelled" && data.planAccessStatus !== "cancelled" && data.status !== "failed") {
+            if (
+                isPaidOrActive &&
+                statusUpper !== "CANCELLED" &&
+                statusUpper !== "REFUNDED" &&
+                statusUpper !== "FAILED" &&
+                data.status !== "cancelled" &&
+                data.planAccessStatus !== "cancelled" &&
+                data.status !== "failed"
+            ) {
                 purchases.push({ id: docSnap.id, purchaseId: docSnap.id, ...data });
             }
         });
@@ -408,15 +420,24 @@ export const fetchUserPurchases = async (userId, { forceRefresh = false } = {}) 
         return timeB - timeA;
     });
 
-    // 2c. Unpack embedded display snapshots (0 Firestore reads)
+    // 2c. Unpack embedded itemSnapshot or legacy display snapshots (0 Firestore reads)
     purchases.forEach((p) => {
-        if (p.display) {
-            if (!p.imageUrl && p.display.serviceImageUrl) p.imageUrl = p.display.serviceImageUrl;
-            if (!p.description && p.display.serviceDescription) p.description = p.display.serviceDescription;
-            if (!p.category && p.display.category) p.category = p.display.category;
-            if (!p.serviceName && p.display.serviceTitle) p.serviceName = p.display.serviceTitle;
-            if (!p.title && p.display.serviceTitle) p.title = p.display.serviceTitle;
-            if (!p.planName && p.display.planName) p.planName = p.display.planName;
+        const snapshot = p.itemSnapshot || p.display;
+        if (snapshot) {
+            if (!p.imageUrl && (snapshot.imageUrl || snapshot.serviceImageUrl)) p.imageUrl = snapshot.imageUrl || snapshot.serviceImageUrl;
+            if (!p.description && (snapshot.description || snapshot.serviceDescription)) p.description = snapshot.description || snapshot.serviceDescription;
+            if (!p.category && snapshot.category) p.category = snapshot.category;
+            if (!p.serviceName && (snapshot.serviceTitle || snapshot.serviceName)) p.serviceName = snapshot.serviceTitle || snapshot.serviceName;
+            if (!p.title && (snapshot.serviceTitle || snapshot.serviceName)) p.title = snapshot.serviceTitle || snapshot.serviceName;
+            if (!p.planName && (snapshot.planTitle || snapshot.planName)) p.planName = snapshot.planTitle || snapshot.planName;
+            if (!p.durationDays && snapshot.durationDays) p.durationDays = snapshot.durationDays;
+            if (!p.features && snapshot.features) p.features = snapshot.features;
+            if (!p.serviceId && snapshot.serviceId) p.serviceId = snapshot.serviceId;
+            if (!p.planId && snapshot.planId) p.planId = snapshot.planId;
+        }
+        if (p.accessWindow) {
+            if (!p.startDate && p.accessWindow.activatedAt) p.startDate = p.accessWindow.activatedAt;
+            if (!p.endDate && p.accessWindow.expiresAt) p.endDate = p.accessWindow.expiresAt;
         }
     });
 
@@ -500,27 +521,48 @@ export const fetchUserPurchasesPaginated = async (userId, {
         const purchases = [];
         resultDocs.forEach((docSnap) => {
             const data = docSnap.data();
-            const upfrontStatus = data.upfrontPayment?.status;
+            const statusUpper = String(data.status || "").toUpperCase();
+            const upfrontStatus = String(data.upfrontPayment?.status || "").toLowerCase();
             const isPaidOrActive =
+                statusUpper === "ACTIVE" ||
+                statusUpper === "COMPLETED" ||
+                statusUpper === "PENDING_MANDATE" ||
                 data.status === "active" ||
                 data.status === "completed" ||
                 data.planAccessStatus === "active" ||
                 data.planAccessStatus === "completed" ||
                 upfrontStatus === "captured" ||
                 upfrontStatus === "success" ||
+                Boolean(data.upfrontPayment?.paymentId) ||
                 Boolean(data.primaryPaymentId) ||
-                Boolean(data.paymentId) ||
-                Boolean(data.upfrontPayment?.paymentId);
+                Boolean(data.paymentId);
 
-            if (isPaidOrActive && data.status !== "cancelled" && data.planAccessStatus !== "cancelled" && data.status !== "failed") {
+            if (
+                isPaidOrActive &&
+                statusUpper !== "CANCELLED" &&
+                statusUpper !== "REFUNDED" &&
+                statusUpper !== "FAILED" &&
+                data.status !== "cancelled" &&
+                data.planAccessStatus !== "cancelled" &&
+                data.status !== "failed"
+            ) {
                 const record = { id: docSnap.id, purchaseId: docSnap.id, ...data };
-                if (record.display) {
-                    if (!record.imageUrl && record.display.serviceImageUrl) record.imageUrl = record.display.serviceImageUrl;
-                    if (!record.description && record.display.serviceDescription) record.description = record.display.serviceDescription;
-                    if (!record.category && record.display.category) record.category = record.display.category;
-                    if (!record.serviceName && record.display.serviceTitle) record.serviceName = record.display.serviceTitle;
-                    if (!record.title && record.display.serviceTitle) record.title = record.display.serviceTitle;
-                    if (!record.planName && record.display.planName) record.planName = record.display.planName;
+                const snapshot = record.itemSnapshot || record.display;
+                if (snapshot) {
+                    if (!record.imageUrl && (snapshot.imageUrl || snapshot.serviceImageUrl)) record.imageUrl = snapshot.imageUrl || snapshot.serviceImageUrl;
+                    if (!record.description && (snapshot.description || snapshot.serviceDescription)) record.description = snapshot.description || snapshot.serviceDescription;
+                    if (!record.category && snapshot.category) record.category = snapshot.category;
+                    if (!record.serviceName && (snapshot.serviceTitle || snapshot.serviceName)) record.serviceName = snapshot.serviceTitle || snapshot.serviceName;
+                    if (!record.title && (snapshot.serviceTitle || snapshot.serviceName)) record.title = snapshot.serviceTitle || snapshot.serviceName;
+                    if (!record.planName && (snapshot.planTitle || snapshot.planName)) record.planName = snapshot.planTitle || snapshot.planName;
+                    if (!record.durationDays && snapshot.durationDays) record.durationDays = snapshot.durationDays;
+                    if (!record.features && snapshot.features) record.features = snapshot.features;
+                    if (!record.serviceId && snapshot.serviceId) record.serviceId = snapshot.serviceId;
+                    if (!record.planId && snapshot.planId) record.planId = snapshot.planId;
+                }
+                if (record.accessWindow) {
+                    if (!record.startDate && record.accessWindow.activatedAt) record.startDate = record.accessWindow.activatedAt;
+                    if (!record.endDate && record.accessWindow.expiresAt) record.endDate = record.accessWindow.expiresAt;
                 }
                 purchases.push(record);
             }
@@ -640,12 +682,23 @@ export const fetchPurchaseById = async (purchaseId, userId) => {
             if (!userId || data.userId === userId) {
                 const purchaseRecord = { id: docSnap.id, purchaseId: docSnap.id, ...data };
 
-                // Unpack embedded display snapshot first (0 Firestore reads)
-                if (purchaseRecord.display) {
-                    if (!purchaseRecord.imageUrl && purchaseRecord.display.serviceImageUrl) purchaseRecord.imageUrl = purchaseRecord.display.serviceImageUrl;
-                    if (!purchaseRecord.description && purchaseRecord.display.serviceDescription) purchaseRecord.description = purchaseRecord.display.serviceDescription;
-                    if (!purchaseRecord.category && purchaseRecord.display.category) purchaseRecord.category = purchaseRecord.display.category;
-                    if (!purchaseRecord.serviceName && purchaseRecord.display.serviceTitle) purchaseRecord.serviceName = purchaseRecord.display.serviceTitle;
+                // Unpack embedded itemSnapshot or legacy display snapshot first (0 Firestore reads)
+                const snapshot = purchaseRecord.itemSnapshot || purchaseRecord.display;
+                if (snapshot) {
+                    if (!purchaseRecord.imageUrl && (snapshot.imageUrl || snapshot.serviceImageUrl)) purchaseRecord.imageUrl = snapshot.imageUrl || snapshot.serviceImageUrl;
+                    if (!purchaseRecord.description && (snapshot.description || snapshot.serviceDescription)) purchaseRecord.description = snapshot.description || snapshot.serviceDescription;
+                    if (!purchaseRecord.category && snapshot.category) purchaseRecord.category = snapshot.category;
+                    if (!purchaseRecord.serviceName && (snapshot.serviceTitle || snapshot.serviceName)) purchaseRecord.serviceName = snapshot.serviceTitle || snapshot.serviceName;
+                    if (!purchaseRecord.title && (snapshot.serviceTitle || snapshot.serviceName)) purchaseRecord.title = snapshot.serviceTitle || snapshot.serviceName;
+                    if (!purchaseRecord.planName && (snapshot.planTitle || snapshot.planName)) purchaseRecord.planName = snapshot.planTitle || snapshot.planName;
+                    if (!purchaseRecord.durationDays && snapshot.durationDays) purchaseRecord.durationDays = snapshot.durationDays;
+                    if (!purchaseRecord.features && snapshot.features) purchaseRecord.features = snapshot.features;
+                    if (!purchaseRecord.serviceId && snapshot.serviceId) purchaseRecord.serviceId = snapshot.serviceId;
+                    if (!purchaseRecord.planId && snapshot.planId) purchaseRecord.planId = snapshot.planId;
+                }
+                if (purchaseRecord.accessWindow) {
+                    if (!purchaseRecord.startDate && purchaseRecord.accessWindow.activatedAt) purchaseRecord.startDate = purchaseRecord.accessWindow.activatedAt;
+                    if (!purchaseRecord.endDate && purchaseRecord.accessWindow.expiresAt) purchaseRecord.endDate = purchaseRecord.accessWindow.expiresAt;
                 }
 
                 // Enrich missing service metadata if needed (targeted single-doc cache)

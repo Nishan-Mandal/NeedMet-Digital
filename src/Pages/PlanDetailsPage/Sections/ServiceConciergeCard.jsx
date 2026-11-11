@@ -33,18 +33,31 @@ export default function ServiceConciergeCard({ purchase }) {
     const finalNumber = cleaned.length === 10 ? `91${cleaned}` : (cleaned || "919999999999");
 
     // 2. Extract purchase metadata
-    const serviceName = purchase?.serviceName || purchase?.category || "Service Plan";
-    const planName = purchase?.planName || purchase?.planTitle || "Selected Tier";
+    const serviceName =
+      purchase?.itemSnapshot?.serviceTitle ||
+      purchase?.serviceName ||
+      purchase?.title ||
+      purchase?.category ||
+      "Service Plan";
+    const planName =
+      purchase?.itemSnapshot?.planTitle ||
+      purchase?.planName ||
+      purchase?.planTitle ||
+      "Selected Tier";
     const isEmi = checkIsEmi(purchase);
     const billingModel = isEmi ? "Monthly EMI Subscription" : "Full Online Payment";
     const purchaseRef = derivePurchaseReference(purchase);
     const amountVal = purchase?.pricing?.finalPrice || purchase?.amount || 0;
-    const isMandateAuthorized = purchase?.mandate?.status === "authorized";
-    const isMandateNeeded = isEmi && !isMandateAuthorized;
+    const mandateStatus = String(purchase?.mandate?.status || "").toUpperCase();
+    const isMandateAuthorized = mandateStatus === "AUTHORIZED";
+    const statusUpper = String(purchase?.status || "").toUpperCase();
+    const isMandateNeeded = statusUpper === "PENDING_MANDATE" || (isEmi && !isMandateAuthorized && statusUpper !== "ACTIVE");
     const statusLabel = isMandateNeeded
       ? "Action Required (AutoPay Setup)"
-      : (purchase?.planAccessStatus === "active" || purchase?.status === "active")
+      : (statusUpper === "ACTIVE" || purchase?.planAccessStatus === "active" || purchase?.status === "active")
       ? "Active Plan"
+      : statusUpper === "COMPLETED"
+      ? "Completed"
       : "In Progress";
 
     // 3. Construct professional pre-filled WhatsApp message

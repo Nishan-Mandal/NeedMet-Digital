@@ -26,7 +26,7 @@ export default function PlanDetailsCard({ purchase }) {
   const durationDays = rawDurationDays > 0 ? rawDurationDays : 90;
 
   const baseDate = getSafeDate(
-    purchase.startDate || purchase.createdAt,
+    purchase.accessWindow?.activatedAt || purchase.startDate || purchase.createdAt,
     extractDateFromId(purchase.id || purchase.orderId) || new Date()
   );
   const startDateStr = formatPlanDate(baseDate);
@@ -34,11 +34,11 @@ export default function PlanDetailsCard({ purchase }) {
   // Compute calculated target end date strictly from start date + durationDays
   const calculatedEndDate = new Date(baseDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
-  // If purchase.endDate is in database, verify it is strictly after the start date (>24 hours)
-  // Prevents legacy bugs where endDate was stored identical to startDate/createdAt
+  // If accessWindow.expiresAt or purchase.endDate is in database, verify it is strictly after the start date (>24 hours)
   let endDateObj = null;
-  if (purchase.endDate) {
-    const candidateEnd = getSafeDate(purchase.endDate, null);
+  const rawEndDate = purchase.accessWindow?.expiresAt || purchase.endDate;
+  if (rawEndDate) {
+    const candidateEnd = getSafeDate(rawEndDate, null);
     if (candidateEnd && candidateEnd.getTime() > baseDate.getTime() + 24 * 60 * 60 * 1000) {
       endDateObj = candidateEnd;
     }
@@ -52,13 +52,24 @@ export default function PlanDetailsCard({ purchase }) {
   const endDateStr = formatPlanDate(endDateObj);
 
   const purchaseRef = derivePurchaseReference(purchase, baseDate);
-  const serviceName = purchase.serviceName || purchase.category || "NeedMet Plan";
-  const planName = purchase.planName || purchase.planTitle || "Starter-3M";
+  const serviceName =
+    purchase.itemSnapshot?.serviceTitle ||
+    purchase.serviceName ||
+    purchase.title ||
+    purchase.category ||
+    "NeedMet Plan";
+  const planName =
+    purchase.itemSnapshot?.planTitle ||
+    purchase.planName ||
+    purchase.planTitle ||
+    "Starter-3M";
   const planType = isEmi ? "Monthly EMI Plan" : "Full Payment";
 
   const subscriptionId = purchase.mandate?.subscriptionId || (isEmi ? "Pending Mandate" : null);
-  const couponText = purchase.couponCode
-    ? `${purchase.couponCode}${purchase.discount ? ` (₹${purchase.discount} off)` : ""}`
+  const couponCode = purchase.pricing?.couponCode || purchase.couponCode;
+  const discountAmount = purchase.pricing?.discountAmount || purchase.discount;
+  const couponText = couponCode
+    ? `${couponCode}${discountAmount ? ` (₹${discountAmount} off)` : ""}`
     : "No coupon applied";
 
   const handleCopy = async (text, key) => {

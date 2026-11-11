@@ -18,19 +18,28 @@ export default function InstallmentSchedule({ purchase }) {
 
   const pricing = purchase.pricing || {};
   const finalPrice = Number(pricing.finalPrice ?? purchase.amount ?? 0);
-  const upfrontPaid = Number(
+  const rawUpfront =
     pricing.upfrontAmount ??
-      purchase.upfrontAmount ??
-      purchase.upfrontPayment?.amount ??
-      (finalPrice > 0 ? Math.round(finalPrice * 0.15 * 100) / 100 : 299.85)
-  );
+    purchase.upfrontPayment?.amount ??
+    purchase.upfrontAmount;
+
+  // Take upfront amount directly from DB, never rounding up
+  const upfrontPaid = Number(rawUpfront ?? 0);
+
+  // Take remaining amount directly from DB pricing.remainingAmount, never rounding up
   const remainingBalance = Number(
-    pricing.remainingAmount ?? Math.max(0, finalPrice - upfrontPaid)
+    pricing.remainingAmount !== undefined && pricing.remainingAmount !== null
+      ? pricing.remainingAmount
+      : Math.max(0, finalPrice - upfrontPaid)
   );
 
   // Extract base creation / enrollment date
   const getBaseDate = () => {
-    const raw = purchase.createdAt || purchase.startDate || purchase.timestamp;
+    const raw =
+      purchase.accessWindow?.activatedAt ||
+      purchase.createdAt ||
+      purchase.startDate ||
+      purchase.timestamp;
     if (!raw) return new Date();
     if (typeof raw.toDate === "function") return raw.toDate();
     const d = new Date(raw);
@@ -63,8 +72,17 @@ export default function InstallmentSchedule({ purchase }) {
   };
 
   // Upfront details
-  const upfrontStatus = purchase.upfrontPayment?.status || (purchase.paymentId ? "captured" : "pending");
-  const isUpfrontCaptured = upfrontStatus === "captured" || upfrontStatus === "success";
+  const statusUpper = String(purchase.status || "").toUpperCase();
+  const upfrontStatus = String(purchase.upfrontPayment?.status || "").toLowerCase();
+  const isUpfrontCaptured =
+    Boolean(purchase.upfrontPayment?.paymentId) ||
+    Boolean(purchase.paymentId) ||
+    upfrontStatus === "captured" ||
+    upfrontStatus === "success" ||
+    statusUpper === "ACTIVE" ||
+    statusUpper === "COMPLETED" ||
+    statusUpper === "PENDING_MANDATE";
+
   const rawUpfrontPid =
     purchase.upfrontPayment?.paymentId ||
     purchase.razorpayPaymentId ||
@@ -86,18 +104,23 @@ export default function InstallmentSchedule({ purchase }) {
     },
   ];
 
-  // Recurring installments
-  const storedInstallments = Array.isArray(pricing.installments) && pricing.installments.length > 0
-    ? pricing.installments
-    : null;
+  // Recurring installments (new model stores in purchase.mandate.installments)
+  const storedInstallments =
+    Array.isArray(purchase.mandate?.installments) && purchase.mandate.installments.length > 0
+      ? purchase.mandate.installments
+      : Array.isArray(pricing.installments) && pricing.installments.length > 0
+      ? pricing.installments
+      : null;
 
-  const rawCycles = Number(pricing.totalCycles ?? purchase.mandate?.totalCount ?? 0);
+  const rawCycles = Number(purchase.mandate?.totalCycles ?? pricing.totalCycles ?? purchase.mandate?.totalCount ?? 0);
+  const paidCycles = Number(purchase.mandate?.paidCycles ?? purchase.paidCycles ?? purchase.mandate?.paidCount ?? 0);
   const cyclesCount = storedInstallments ? storedInstallments.length : (rawCycles > 0 ? rawCycles : 3);
   const emiAmount = Number(
-    pricing.emiAmount ??
-      (remainingBalance > 0
-        ? Math.round((remainingBalance / cyclesCount) * 100) / 100
-        : 566.38)
+    purchase.mandate?.emiAmount ??
+      pricing.emiAmount ??
+      (cyclesCount > 0 && remainingBalance > 0
+        ? remainingBalance / cyclesCount
+        : 0)
   );
 
   const now = new Date();
@@ -105,13 +128,17 @@ export default function InstallmentSchedule({ purchase }) {
   if (storedInstallments) {
     storedInstallments.forEach((inst, idx) => {
       const cycleIndex = inst.cycleIndex || idx + 1;
-      const instDueDate = inst.scheduledDate ? new Date(inst.scheduledDate) : null;
-      const dueDateStr = formatScheduleDate(inst.scheduledDate);
-      const isPaid = inst.status === "paid" || inst.status === "completed" ||
-        (purchase.mandate?.paidCount && cycleIndex <= purchase.mandate.paidCount);
-      const isFailed = inst.status === "failed";
-      const isRetrying = inst.status === "retrying";
-      const isProcessing = inst.status === "processing";
+      const rawDue = inst.dueDate || inst.scheduledDate;
+      const instDueDate = rawDue ? (rawDue.toDate ? rawDue.toDate() : new Date(rawDue)) : null;
+      const dueDateStr = formatScheduleDate(rawDue);
+      const instStatusUpper = String(inst.status || "").toUpperCase();
+      const isPaid =
+        instStatusUpper === "PAID" ||
+        instStatusUpper === "COMPLETED" ||
+        (paidCycles > 0 && cycleIndex <= paidCycles);
+      const isFailed = instStatusUpper === "FAILED";
+      const isRetrying = instStatusUpper === "RETRYING";
+      const isProcessing = instStatusUpper === "PROCESSING";
       const isOverdue = !isPaid && !isFailed && !isRetrying && instDueDate && instDueDate < now;
 
       let badgeText = "Upcoming";
@@ -125,7 +152,7 @@ export default function InstallmentSchedule({ purchase }) {
         badgeVariant = "completed";
         state = "completed";
         rawPaymentId = inst.paymentId || null;
-        const paidDateStr = formatScheduleDate(inst.paidAt || inst.scheduledDate);
+        const paidDateStr = formatScheduleDate(inst.paidAt || rawDue);
         dateLabel = `Paid on ${paidDateStr}`;
       } else if (isFailed) {
         badgeText = "Payment Failed";
@@ -161,7 +188,7 @@ export default function InstallmentSchedule({ purchase }) {
       });
     });
   } else {
-    // Fallback: Synthesize from mandate paidCount if stored installments absent
+    // Fallback: Synthesize from mandate paidCycles if stored installments absent
     const fallbackBillingDay = Number(pricing.billingDay || 9);
     for (let i = 1; i <= cyclesCount; i++) {
       const dueDate = new Date(baseDate);
@@ -169,10 +196,7 @@ export default function InstallmentSchedule({ purchase }) {
       const maxDay = new Date(dueDate.getFullYear(), dueDate.getMonth() + 1, 0).getDate();
       dueDate.setDate(Math.min(fallbackBillingDay, maxDay));
       const dueDateStr = formatScheduleDate(dueDate);
-      const isCompleted = Boolean(
-        (purchase.paidCycles && i <= purchase.paidCycles) ||
-        (purchase.mandate?.paidCount && i <= purchase.mandate.paidCount)
-      );
+      const isCompleted = Boolean(paidCycles > 0 && i <= paidCycles);
       const isOverdue = !isCompleted && dueDate < now;
 
       let badgeText = "Upcoming";

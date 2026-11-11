@@ -29,11 +29,15 @@ export function getStatusConfig(purchase) {
   }
 
   const isEmi = checkIsEmi(purchase);
-  const isMandateAuthorized = purchase.mandate?.status === "authorized";
+  const mandateStatus = String(purchase.mandate?.status || "").toUpperCase();
+  const isMandateAuthorized = mandateStatus === "AUTHORIZED";
+  const statusUpper = String(purchase.status || "").toUpperCase();
   const isPlanMarkedActive =
-    purchase.planAccessStatus === "active" || purchase.status === "active";
+    statusUpper === "ACTIVE" ||
+    purchase.planAccessStatus === "active" ||
+    purchase.status === "active";
 
-  if (isEmi && !isMandateAuthorized) {
+  if (statusUpper === "PENDING_MANDATE" || (isEmi && !isMandateAuthorized && statusUpper !== "ACTIVE")) {
     return {
       label: "Action Required: AutoPay",
       variant: "warning",
@@ -43,7 +47,7 @@ export function getStatusConfig(purchase) {
     };
   }
 
-  if (isPlanMarkedActive) {
+  if (statusUpper === "ACTIVE" || (isPlanMarkedActive && (!isEmi || isMandateAuthorized))) {
     return {
       label: "Active Plan",
       variant: "success",
@@ -53,13 +57,49 @@ export function getStatusConfig(purchase) {
     };
   }
 
-  if (purchase.status === "completed" || purchase.planAccessStatus === "completed") {
+  if (
+    statusUpper === "COMPLETED" ||
+    purchase.status === "completed" ||
+    purchase.planAccessStatus === "completed"
+  ) {
     return {
       label: "Completed",
       variant: "neutral",
       icon: "task_alt",
       badgeClass: "bg-gray-100 text-gray-800 border-gray-200",
       dotClass: "bg-gray-400",
+    };
+  }
+
+  if (
+    statusUpper === "CANCELLED" ||
+    statusUpper === "REFUNDED" ||
+    statusUpper === "FAILED" ||
+    purchase.status === "cancelled" ||
+    purchase.planAccessStatus === "cancelled" ||
+    purchase.status === "failed"
+  ) {
+    return {
+      label: "Cancelled",
+      variant: "neutral",
+      icon: "cancel",
+      badgeClass: "bg-red-50 text-red-800 border-red-200",
+      dotClass: "bg-red-500",
+    };
+  }
+
+  if (
+    statusUpper === "PENDING_PAYMENT" ||
+    statusUpper === "PENDING" ||
+    purchase.status === "pending" ||
+    purchase.upfrontPayment?.status === "pending"
+  ) {
+    return {
+      label: "Payment Incomplete",
+      variant: "warning",
+      icon: "pending",
+      badgeClass: "bg-amber-50 text-amber-900 border-amber-300 ring-1 ring-amber-200/60",
+      dotClass: "bg-amber-500",
     };
   }
 
@@ -154,10 +194,20 @@ export function extractDateFromId(idStr) {
  */
 export function deriveDurationDays(purchase) {
   if (!purchase) return 90;
+  if (purchase.itemSnapshot?.durationDays && !isNaN(Number(purchase.itemSnapshot.durationDays)) && Number(purchase.itemSnapshot.durationDays) > 0) {
+    return Number(purchase.itemSnapshot.durationDays);
+  }
   if (purchase.durationDays && !isNaN(Number(purchase.durationDays)) && Number(purchase.durationDays) > 0) {
     return Number(purchase.durationDays);
   }
-  const nameStr = `${purchase.planName || ""} ${purchase.planType || ""} ${purchase.duration || ""} ${Array.isArray(purchase.plans) ? purchase.plans[0]?.duration || "" : ""}`;
+  if (purchase.accessWindow?.activatedAt && purchase.accessWindow?.expiresAt) {
+    const act = parseSafeDate(purchase.accessWindow.activatedAt);
+    const exp = parseSafeDate(purchase.accessWindow.expiresAt);
+    if (act && exp && exp.getTime() > act.getTime()) {
+      return Math.max(1, Math.round((exp.getTime() - act.getTime()) / (24 * 60 * 60 * 1000)));
+    }
+  }
+  const nameStr = `${purchase.itemSnapshot?.planTitle || ""} ${purchase.planName || ""} ${purchase.planType || ""} ${purchase.duration || ""} ${Array.isArray(purchase.plans) ? purchase.plans[0]?.duration || "" : ""}`;
   const mMatch = nameStr.match(/(\d+)\s*(?:M|Months?)/i);
   if (mMatch && Number(mMatch[1]) > 0) return Number(mMatch[1]) * 30;
   const dMatch = nameStr.match(/(\d+)\s*(?:D|Days?)/i);
@@ -165,7 +215,7 @@ export function deriveDurationDays(purchase) {
   const yMatch = nameStr.match(/(\d+)\s*(?:Y|Years?)/i);
   if (yMatch && Number(yMatch[1]) > 0) return Number(yMatch[1]) * 365;
 
-  const cycles = Number(purchase.pricing?.totalCycles ?? purchase.mandate?.totalCount ?? 0);
+  const cycles = Number(purchase.mandate?.totalCycles ?? purchase.pricing?.totalCycles ?? purchase.mandate?.totalCount ?? 0);
   if (cycles > 0) return Math.max((cycles + 1) * 30, 30);
 
   return 90;

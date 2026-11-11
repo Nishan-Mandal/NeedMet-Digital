@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getIconForTitle } from "../../Components/icons/title.icon";
 
@@ -19,12 +19,27 @@ function checkIsEmi(purchase) {
  * must NOT be presented as active.
  */
 function getStatusConfig(purchase) {
+  if (!purchase) {
+    return {
+      label: "Processing",
+      variant: "neutral",
+      icon: "hourglass_top",
+      badgeClass: "bg-blue-600 text-white font-semibold shadow-xs",
+      dotClass: "bg-white",
+    };
+  }
+
   const isEmi = checkIsEmi(purchase);
-  const isMandateAuthorized = purchase.mandate?.status === "authorized";
-  const isPlanMarkedActive = purchase.planAccessStatus === "active" || purchase.status === "active";
+  const mandateStatus = String(purchase.mandate?.status || "").toUpperCase();
+  const isMandateAuthorized = mandateStatus === "AUTHORIZED";
+  const statusUpper = String(purchase.status || "").toUpperCase();
+  const isPlanMarkedActive =
+    statusUpper === "ACTIVE" ||
+    purchase.planAccessStatus === "active" ||
+    purchase.status === "active";
 
   // AutoPay required check
-  if (isEmi && !isMandateAuthorized) {
+  if (statusUpper === "PENDING_MANDATE" || (isEmi && !isMandateAuthorized && statusUpper !== "ACTIVE")) {
     return {
       label: "AutoPay Required",
       variant: "warning",
@@ -35,7 +50,7 @@ function getStatusConfig(purchase) {
   }
 
   // Active check
-  if (isPlanMarkedActive) {
+  if (statusUpper === "ACTIVE" || (isPlanMarkedActive && (!isEmi || isMandateAuthorized))) {
     return {
       label: "Active Plan",
       variant: "success",
@@ -46,7 +61,11 @@ function getStatusConfig(purchase) {
   }
 
   // Completed check
-  if (purchase.status === "completed" || purchase.planAccessStatus === "completed") {
+  if (
+    statusUpper === "COMPLETED" ||
+    purchase.status === "completed" ||
+    purchase.planAccessStatus === "completed"
+  ) {
     return {
       label: "Completed",
       variant: "neutral",
@@ -56,8 +75,15 @@ function getStatusConfig(purchase) {
     };
   }
 
-  // Cancelled or Failed check
-  if (purchase.status === "cancelled" || purchase.planAccessStatus === "cancelled" || purchase.status === "failed") {
+  // Cancelled or Failed or Refunded check
+  if (
+    statusUpper === "CANCELLED" ||
+    statusUpper === "REFUNDED" ||
+    statusUpper === "FAILED" ||
+    purchase.status === "cancelled" ||
+    purchase.planAccessStatus === "cancelled" ||
+    purchase.status === "failed"
+  ) {
     return {
       label: "Cancelled",
       variant: "neutral",
@@ -68,7 +94,12 @@ function getStatusConfig(purchase) {
   }
 
   // Pending / Unpaid check
-  if (purchase.status === "pending" || purchase.upfrontPayment?.status === "pending") {
+  if (
+    statusUpper === "PENDING_PAYMENT" ||
+    statusUpper === "PENDING" ||
+    purchase.status === "pending" ||
+    purchase.upfrontPayment?.status === "pending"
+  ) {
     return {
       label: "Payment Incomplete",
       variant: "warning",
@@ -92,59 +123,71 @@ export default function PurchasedPlanCard({ purchase }) {
   const [imgError, setImgError] = useState(false);
 
   const isEmi = checkIsEmi(purchase);
-  const isMandateAuthorized = purchase.mandate?.status === "authorized";
+  const mandateStatus = String(purchase?.mandate?.status || "").toUpperCase();
+  const isMandateAuthorized = mandateStatus === "AUTHORIZED";
+  const statusUpper = String(purchase?.status || "").toUpperCase();
   const isPlanActive =
-    (purchase.planAccessStatus === "active" || purchase.status === "active") &&
+    (statusUpper === "ACTIVE" || purchase?.planAccessStatus === "active" || purchase?.status === "active") &&
     (!isEmi || isMandateAuthorized);
-  const isMandateNeeded = isEmi && !isMandateAuthorized;
+  const isMandateNeeded = statusUpper === "PENDING_MANDATE" || (isEmi && !isMandateAuthorized && statusUpper !== "ACTIVE");
 
   const statusConfig = getStatusConfig(purchase);
 
-  // Derive duration in days from service or purchase data
+  // Derive duration in days from snapshot, service or purchase data
   const deriveDurationDays = () => {
+    if (purchase.itemSnapshot?.durationDays && !isNaN(Number(purchase.itemSnapshot.durationDays)) && Number(purchase.itemSnapshot.durationDays) > 0) {
+      return Number(purchase.itemSnapshot.durationDays);
+    }
     if (purchase.durationDays && !isNaN(Number(purchase.durationDays)) && Number(purchase.durationDays) > 0) {
       return Number(purchase.durationDays);
+    }
+    if (purchase.accessWindow?.activatedAt && purchase.accessWindow?.expiresAt) {
+      const act = new Date(purchase.accessWindow.activatedAt?.toDate ? purchase.accessWindow.activatedAt.toDate() : purchase.accessWindow.activatedAt);
+      const exp = new Date(purchase.accessWindow.expiresAt?.toDate ? purchase.accessWindow.expiresAt.toDate() : purchase.accessWindow.expiresAt);
+      if (!isNaN(act.getTime()) && !isNaN(exp.getTime()) && exp > act) {
+        return Math.max(1, Math.round((exp.getTime() - act.getTime()) / (24 * 60 * 60 * 1000)));
+      }
     }
     if (Array.isArray(purchase.plans) && purchase.plans[0]?.durationDays && !isNaN(Number(purchase.plans[0].durationDays))) {
       return Number(purchase.plans[0].durationDays);
     }
-    const nameStr = `${purchase.planName || ""} ${purchase.planType || ""} ${purchase.duration || ""} ${Array.isArray(purchase.plans) ? purchase.plans[0]?.duration || "" : ""}`;
+    const nameStr = `${purchase.itemSnapshot?.planTitle || ""} ${purchase.planName || ""} ${purchase.planType || ""} ${purchase.duration || ""} ${Array.isArray(purchase.plans) ? purchase.plans[0]?.duration || "" : ""}`;
     const mMatch = nameStr.match(/(\d+)\s*(?:M|Months?)/i);
     if (mMatch && Number(mMatch[1]) > 0) return Number(mMatch[1]) * 30;
     const dMatch = nameStr.match(/(\d+)\s*(?:D|Days?)/i);
     if (dMatch && Number(dMatch[1]) > 0) return Number(dMatch[1]);
     const yMatch = nameStr.match(/(\d+)\s*(?:Y|Years?)/i);
     if (yMatch && Number(yMatch[1]) > 0) return Number(yMatch[1]) * 365;
-    const cycles = Number(purchase.pricing?.totalCycles ?? purchase.mandate?.totalCount ?? 0);
+    const cycles = Number(purchase.mandate?.totalCycles ?? purchase.pricing?.totalCycles ?? purchase.mandate?.totalCount ?? 0);
     if (cycles > 0) return Math.max((cycles + 1) * 30, 30);
     return 90;
   };
 
   const durationDays = deriveDurationDays();
 
-  // Financial derivations
+  // Financial values directly from DB
   const pricing = purchase.pricing || {};
   const finalPrice = Number(
     pricing.finalPrice ??
       purchase.amount ??
       purchase.price ??
       (Array.isArray(purchase.plans) && purchase.plans[0]?.price) ??
-      1999
+      0
   );
-  const upfrontPaid = Number(
+  const rawUpfront =
     pricing.upfrontAmount ??
-      purchase.upfrontAmount ??
-      (isEmi ? Math.round(finalPrice * 0.15 * 100) / 100 : finalPrice)
-  );
-  const remainingBalance = Number(
-    pricing.remainingAmount ?? Math.max(0, finalPrice - upfrontPaid)
-  );
-  const rawCycles = Number(pricing.totalCycles ?? purchase.mandate?.totalCount ?? 0);
-  const totalCycles = rawCycles > 0 ? rawCycles : (durationDays > 30 ? Math.round(durationDays / 30) : 3);
+    purchase.upfrontPayment?.amount ??
+    purchase.upfrontAmount;
 
-  // Verified paid amount & percentage
-  const verifiedPaid = isEmi ? upfrontPaid : (isPlanActive || purchase.status === "completed" ? finalPrice : 0);
-  const paidPercent = finalPrice > 0 ? Math.min(Math.round((verifiedPaid / finalPrice) * 100), 100) : 0;
+  // Take upfront amount directly from DB, never rounding up
+  const upfrontPaid = Number(rawUpfront ?? (isEmi ? 0 : finalPrice) ?? 0);
+
+  // Take remaining amount directly from DB pricing.remainingAmount, never rounding up
+  const remainingBalance = Number(
+    pricing.remainingAmount !== undefined && pricing.remainingAmount !== null
+      ? pricing.remainingAmount
+      : Math.max(0, finalPrice - upfrontPaid)
+  );
 
   const targetId = purchase.id || purchase.purchaseId || purchase.orderId || purchase.razorpayOrderId;
 
@@ -161,15 +204,19 @@ export default function PurchasedPlanCard({ purchase }) {
     }
   };
 
-  // Resolve service title from service document (title) or purchase record
+  // Resolve service title from itemSnapshot, service document (title) or purchase record
   const serviceTitle =
-    purchase.title ||
+    purchase.itemSnapshot?.serviceTitle ||
     purchase.serviceTitle ||
+    purchase.title ||
     purchase.serviceName ||
     purchase.service?.title ||
     purchase.name ||
+    purchase.itemSnapshot?.category ||
     purchase.category ||
     "Digital Marketing Service";
+
+  const category = purchase.itemSnapshot?.category || purchase.category || "";
 
   // Catalog descriptions lookup by service keywords
   const SERVICE_DESCRIPTIONS = {
@@ -184,8 +231,11 @@ export default function PurchasedPlanCard({ purchase }) {
     "seo": "Complete search engine optimization to boost organic visibility and top search rankings.",
   };
 
-  // Description from service document (description), purchase record, or matched service catalog
+  // Description from itemSnapshot, service document, purchase record, or matched service catalog
   const resolveDescription = () => {
+    if (purchase.itemSnapshot?.serviceDescription && typeof purchase.itemSnapshot.serviceDescription === "string" && purchase.itemSnapshot.serviceDescription.trim().length > 0) {
+      return purchase.itemSnapshot.serviceDescription;
+    }
     if (purchase.description && typeof purchase.description === "string" && purchase.description.trim().length > 0) {
       return purchase.description;
     }
@@ -199,7 +249,7 @@ export default function PurchasedPlanCard({ purchase }) {
       return purchase.plans[0].description;
     }
 
-    const titleKey = `${serviceTitle} ${purchase.category || ""}`.toLowerCase();
+    const titleKey = `${serviceTitle} ${category}`.toLowerCase();
     for (const [key, desc] of Object.entries(SERVICE_DESCRIPTIONS)) {
       if (titleKey.includes(key)) {
         return desc;
@@ -239,6 +289,7 @@ export default function PurchasedPlanCard({ purchase }) {
   };
 
   const explicitImage = extractValidImage(
+    purchase.itemSnapshot?.imageUrl,
     purchase.imageUrl,
     purchase.image,
     purchase.serviceImage,
@@ -248,7 +299,7 @@ export default function PurchasedPlanCard({ purchase }) {
   );
 
   const resolveCuratedImage = () => {
-    const key = `${serviceTitle} ${purchase.category || ""}`.toLowerCase();
+    const key = `${serviceTitle} ${category}`.toLowerCase();
     for (const [k, url] of Object.entries(CURATED_SERVICE_IMAGES)) {
       if (key.includes(k)) return url;
     }
@@ -259,7 +310,7 @@ export default function PurchasedPlanCard({ purchase }) {
 
   // Icon: match from service title, category, and tags
   const icon = getIconForTitle(
-    `${serviceTitle} ${purchase.category || ""} ${Array.isArray(purchase.tags) ? purchase.tags.join(" ") : ""}`
+    `${serviceTitle} ${category} ${Array.isArray(purchase.tags) ? purchase.tags.join(" ") : ""}`
   );
 
   return (

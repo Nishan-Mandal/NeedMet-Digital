@@ -46,7 +46,10 @@ export default function PaymentReceiptsCard({
                 {isEmi ? "Initial Down Payment" : isCash ? "Cash Voucher Payment" : "Verified Payment"}
               </span>
               <span className="font-heading font-bold text-emerald-800 text-sm sm:text-base tabular-nums">
-                ₹{Number(verifiedPaid || 0).toLocaleString("en-IN")}
+                ₹{Number(verifiedPaid || 0).toLocaleString("en-IN", {
+                  minimumFractionDigits: Number(verifiedPaid || 0) % 1 !== 0 ? 2 : 0,
+                  maximumFractionDigits: 2,
+                })}
               </span>
             </div>
 
@@ -92,7 +95,7 @@ export default function PaymentReceiptsCard({
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Recorded Date:</span>
                 <span className="font-medium text-slate-800">
-                  {formatDate(purchase?.createdAt || purchase?.startDate)}
+                  {formatDate(purchase?.upfrontPayment?.paidAt || purchase?.accessWindow?.activatedAt || purchase?.createdAt || purchase?.startDate)}
                 </span>
               </div>
 

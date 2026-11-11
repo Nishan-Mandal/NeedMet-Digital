@@ -24,24 +24,28 @@ export default function PlanFinancialOverview({ purchase }) {
   const financials = calculateAuthoritativeFinancials(purchase);
   const { isEmi, planTotal, upfrontPaid, verifiedPaid, remainingBalance, paidPercent } = financials;
 
+  const statusUpper = String(purchase.status || "").toUpperCase();
   const isFullPaid =
     !isEmi &&
     (financials.isFullPaidCompleted ||
       financials.isUpfrontPaid ||
+      statusUpper === "COMPLETED" ||
+      statusUpper === "ACTIVE" ||
       purchase.status === "completed" ||
       purchase.status === "active" ||
       purchase.planAccessStatus === "active");
-  const rawCycles = Number(purchase.pricing?.totalCycles ?? purchase.mandate?.totalCount ?? 0);
+  const rawCycles = Number(purchase.mandate?.totalCycles ?? purchase.pricing?.totalCycles ?? purchase.mandate?.totalCount ?? 0);
   const totalCycles = rawCycles > 0 ? rawCycles : (durationDays > 30 ? Math.round(durationDays / 30) : 3);
   const emiAmount = Number(
-    purchase.pricing?.emiAmount ??
+    purchase.mandate?.emiAmount ??
+      purchase.pricing?.emiAmount ??
       (totalCycles > 0 && remainingBalance > 0
-        ? Math.round((remainingBalance / totalCycles) * 100) / 100
-        : 566.38)
+        ? remainingBalance / totalCycles
+        : 0)
   );
 
   const baseDate = getSafeDate(
-    purchase.createdAt || purchase.startDate,
+    purchase.accessWindow?.activatedAt || purchase.createdAt || purchase.startDate,
     extractDateFromId(purchase.id || purchase.orderId) || new Date()
   );
   const purchasedOnStr = formatPlanDate(baseDate);

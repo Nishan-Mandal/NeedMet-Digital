@@ -72,7 +72,12 @@ export default function useCheckout() {
           paymentResponse.razorpay_signature
         );
 
-        const paidAmountRupees = Number(amount) > 1000 ? Math.round(Number(amount) / 100) : Number(amount);
+        const paidAmountRupees =
+          serviceDetails?.finalPrice !== undefined && serviceDetails?.finalPrice !== null
+            ? Number(serviceDetails.finalPrice)
+            : Number(amount) > 0
+            ? Number(amount) / 100
+            : Number(amount);
         const fullDurationDays = Number(serviceDetails?.durationDays) || 92;
         const nowFull = new Date();
         const endFullDate = new Date(nowFull.getTime() + fullDurationDays * 24 * 60 * 60 * 1000);
@@ -81,14 +86,45 @@ export default function useCheckout() {
           purchaseId: razorpayOrderId,
           orderId: razorpayOrderId,
           userId: currentUser?.uid || "anonymous",
+          userName: currentUser?.displayName || currentUser?.email || "Customer",
           userEmail: currentUser?.email || "",
+          paymentMethod: "FULL",
+          status: "ACTIVE",
+          itemSnapshot: {
+            serviceId: serviceId,
+            serviceTitle: serviceDetails?.serviceName || "NeedMet Digital",
+            planId: planId,
+            planTitle: serviceDetails?.planName || "Service Plan",
+            category: serviceDetails?.category || "Digital Marketing",
+            imageUrl: Array.isArray(serviceDetails?.imageUrl) ? serviceDetails.imageUrl[0] : (serviceDetails?.imageUrl || ""),
+            durationDays: fullDurationDays,
+            features: serviceDetails?.features || [],
+          },
+          pricing: {
+            originalPrice: Number(serviceDetails?.basePrice) || paidAmountRupees,
+            discountAmount: Math.max(0, (Number(serviceDetails?.basePrice) || paidAmountRupees) - paidAmountRupees),
+            finalPrice: Number(serviceDetails?.finalPrice) || paidAmountRupees,
+            upfrontAmount: paidAmountRupees,
+            remainingAmount: 0,
+            couponCode: couponCode || null,
+          },
+          accessWindow: {
+            activatedAt: nowFull.toISOString(),
+            expiresAt: endFullDate.toISOString(),
+          },
+          upfrontPayment: {
+            paymentId: paymentResponse.razorpay_payment_id,
+            paidAt: nowFull.toISOString(),
+            amount: paidAmountRupees,
+          },
+          mandate: null,
+          // Backward compatibility fields
           serviceId: serviceId,
           serviceName: serviceDetails?.serviceName || "NeedMet Digital",
           planId: planId,
           planName: serviceDetails?.planName || "Service Plan",
           category: serviceDetails?.category || "Digital Marketing",
           imageUrl: serviceDetails?.imageUrl || [],
-          paymentMethod: "FULL",
           isEmi: false,
           amount: paidAmountRupees,
           duration: serviceDetails?.duration || `${fullDurationDays} Days`,
@@ -96,19 +132,6 @@ export default function useCheckout() {
           planType: serviceDetails?.planType || serviceDetails?.duration || `${fullDurationDays} Days`,
           startDate: nowFull.toISOString(),
           endDate: endFullDate.toISOString(),
-          pricing: {
-            totalPrice: Number(serviceDetails?.finalPrice) || paidAmountRupees,
-            finalPrice: Number(serviceDetails?.finalPrice) || paidAmountRupees,
-            upfrontAmount: paidAmountRupees,
-          },
-          upfrontPayment: {
-            paymentId: paymentResponse.razorpay_payment_id,
-            orderId: razorpayOrderId,
-            amount: paidAmountRupees,
-            status: "captured",
-            paidAt: new Date().toISOString(),
-          },
-          status: "active",
           planAccessStatus: "active",
         };
 
@@ -169,10 +192,19 @@ export default function useCheckout() {
           upfrontResponse.razorpay_signature
         );
 
-        const upfrontAmountRupees = Number(amount) > 1000 ? Math.round(Number(amount) / 100) : Number(amount);
+        const upfrontAmountRupees =
+          serviceDetails?.upfrontAmount !== undefined && serviceDetails?.upfrontAmount !== null
+            ? Number(serviceDetails.upfrontAmount)
+            : Number(amount) > 0
+            ? Number(amount) / 100
+            : Number(amount);
         const totalCycles = Number(serviceDetails?.totalCycles) || 3;
-        const finalPrice = Number(serviceDetails?.finalPrice) || Math.round(upfrontAmountRupees / 0.15);
-        const emiAmount = Number(serviceDetails?.emiAmount) || Math.round(((finalPrice - upfrontAmountRupees) / totalCycles) * 100) / 100;
+        const finalPrice =
+          Number(serviceDetails?.finalPrice) ||
+          (upfrontAmountRupees > 0 ? upfrontAmountRupees / 0.15 : 0);
+        const emiAmount =
+          Number(serviceDetails?.emiAmount) ||
+          (totalCycles > 0 ? (finalPrice - upfrontAmountRupees) / totalCycles : 0);
 
         const emiDurationDays = Number(serviceDetails?.durationDays) || 92;
         const nowEmi = new Date();
@@ -182,14 +214,54 @@ export default function useCheckout() {
           purchaseId: razorpayOrderId,
           orderId: razorpayOrderId,
           userId: currentUser?.uid || "anonymous",
+          userName: currentUser?.displayName || currentUser?.email || "Customer",
           userEmail: currentUser?.email || "",
+          paymentMethod: "EMI",
+          status: "PENDING_MANDATE",
+          itemSnapshot: {
+            serviceId: serviceId,
+            serviceTitle: serviceDetails?.serviceName || "NeedMet Digital",
+            planId: planId,
+            planTitle: serviceDetails?.planName || "Service Plan (EMI)",
+            category: serviceDetails?.category || "Digital Marketing",
+            imageUrl: Array.isArray(serviceDetails?.imageUrl) ? serviceDetails.imageUrl[0] : (serviceDetails?.imageUrl || ""),
+            durationDays: emiDurationDays,
+            features: serviceDetails?.features || [],
+          },
+          pricing: {
+            originalPrice: Number(serviceDetails?.basePrice) || finalPrice,
+            discountAmount: Math.max(0, (Number(serviceDetails?.basePrice) || finalPrice) - finalPrice),
+            finalPrice: finalPrice,
+            upfrontAmount: upfrontAmountRupees,
+            remainingAmount: Math.max(0, finalPrice - upfrontAmountRupees),
+            couponCode: couponCode || null,
+          },
+          accessWindow: {
+            activatedAt: nowEmi.toISOString(),
+            expiresAt: endEmiDate.toISOString(),
+          },
+          upfrontPayment: {
+            paymentId: upfrontResponse.razorpay_payment_id,
+            paidAt: nowEmi.toISOString(),
+            amount: upfrontAmountRupees,
+          },
+          mandate: {
+            subscriptionId: null,
+            status: "PENDING",
+            totalCycles: totalCycles,
+            paidCycles: 0,
+            emiAmount: emiAmount,
+            nextDebitDate: null,
+            lastChargedAt: null,
+            installments: [],
+          },
+          // Backward compatibility fields
           serviceId: serviceId,
           serviceName: serviceDetails?.serviceName || "NeedMet Digital",
           planId: planId,
           planName: serviceDetails?.planName || "Service Plan (EMI)",
           category: serviceDetails?.category || "Digital Marketing",
           imageUrl: serviceDetails?.imageUrl || [],
-          paymentMethod: "EMI",
           isEmi: true,
           amount: upfrontAmountRupees,
           duration: serviceDetails?.duration || `${emiDurationDays} Days`,
@@ -197,26 +269,6 @@ export default function useCheckout() {
           planType: serviceDetails?.planType || serviceDetails?.duration || `${emiDurationDays} Days`,
           startDate: nowEmi.toISOString(),
           endDate: endEmiDate.toISOString(),
-          pricing: {
-            totalPrice: finalPrice,
-            finalPrice: finalPrice,
-            upfrontAmount: upfrontAmountRupees,
-            totalCycles: totalCycles,
-            emiAmount: emiAmount,
-            billingInterval: "monthly",
-          },
-          upfrontPayment: {
-            paymentId: upfrontResponse.razorpay_payment_id,
-            orderId: razorpayOrderId,
-            amount: upfrontAmountRupees,
-            status: "captured",
-            paidAt: new Date().toISOString(),
-          },
-          mandate: {
-            status: "pending",
-            totalCount: totalCycles,
-          },
-          status: "pending_mandate",
           planAccessStatus: "pending_mandate",
         };
 
@@ -306,12 +358,15 @@ export default function useCheckout() {
       const mandateUpdate = {
         purchaseId,
         mandate: {
-          status: "authorized",
+          status: "AUTHORIZED",
           subscriptionId: activeSubId,
           paymentId: mandateResponse.razorpay_payment_id,
           authorizedAt: new Date().toISOString(),
         },
-        status: "active",
+        status: "ACTIVE",
+        accessWindow: {
+          activatedAt: new Date().toISOString(),
+        },
         planAccessStatus: "active",
       };
 
