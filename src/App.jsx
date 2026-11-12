@@ -24,6 +24,7 @@ const Coupons = lazy(() => import("./Admin/features/coupons/pages/Coupons"));
 const CashCodes = lazy(() => import("./Admin/features/cashcodes/pages/CashCodes"));
 const Purchases = lazy(() => import("./Admin/features/purchases/pages/Purchases"));
 const Payments = lazy(() => import("./Admin/features/payments/pages/Payments"));
+const SalesReportDashboard = lazy(() => import("./Admin/features/reports/pages/SalesReportDashboard"));
 
 function App() {
   return (
@@ -50,7 +51,9 @@ function App() {
             {/* Secure Admin Portal Routes */}
             <Route element={<AdminRoute />}>
               <Route path="/admin" element={<Admin />}>
-                <Route index element={<Navigate to="/admin/plans" replace />} />
+                <Route index element={<Navigate to="/admin/reports" replace />} />
+                <Route path="reports" element={<SalesReportDashboard />} />
+                <Route path="sales-report" element={<Navigate to="/admin/reports" replace />} />
                 <Route path="plans" element={<PlansDashboard />} />
                 <Route path="plans/new" element={<PlanForm />} />
                 <Route path="plans/edit/:planId" element={<PlanForm />} />

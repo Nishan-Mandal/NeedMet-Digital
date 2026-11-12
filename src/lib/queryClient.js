@@ -123,5 +123,21 @@ export const queryKeys = {
     ],
     detail: (paymentId) => ["admin", "payments", "detail", paymentId],
   },
+
+  // Admin Sales Reports
+  salesReport: {
+    all: () => ["admin", "reports", "sales"],
+    dashboard: (timeframe = "30d", customRange = null) => [
+      "admin",
+      "reports",
+      "sales",
+      "dashboard",
+      {
+        timeframe,
+        start: customRange?.start || null,
+        end: customRange?.end || null,
+      },
+    ],
+  },
 };
 

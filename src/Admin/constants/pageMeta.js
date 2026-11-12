@@ -5,6 +5,7 @@ import {
   PlusCircle,
   ShoppingBag,
   CreditCard,
+  TrendingUp,
 } from "lucide-react";
 
 /**
@@ -12,9 +13,19 @@ import {
  */
 export const PAGE_META = {
   "/admin": {
-    title: "Plans & Services",
-    description: "Configure service packages, duration tiers, EMI options, and pricing.",
-    icon: NotepadText,
+    title: "Sales & Revenue Report",
+    description: "Executive analytics, cash flow, plan sales performance, and EMI health.",
+    icon: TrendingUp,
+  },
+  "/admin/reports": {
+    title: "Sales & Revenue Report",
+    description: "Executive analytics, cash flow, plan sales performance, and EMI health.",
+    icon: TrendingUp,
+  },
+  "/admin/sales-report": {
+    title: "Sales & Revenue Report",
+    description: "Executive analytics, cash flow, plan sales performance, and EMI health.",
+    icon: TrendingUp,
   },
   "/admin/plans": {
     title: "Plans & Services",

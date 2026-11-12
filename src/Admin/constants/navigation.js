@@ -4,12 +4,20 @@ import {
   Banknote,
   ShoppingBag,
   CreditCard,
+  TrendingUp,
 } from "lucide-react";
 
 /**
  * Flat & tree navigation configuration for NeedMate Digital Admin Panel
  */
 export const navTree = [
+  {
+    type: "link",
+    to: "/admin/reports",
+    label: "Sales & Reports",
+    icon: TrendingUp,
+    description: "Revenue, plan analytics & EMI performance",
+  },
   {
     type: "link",
     to: "/admin/plans",
