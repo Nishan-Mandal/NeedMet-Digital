@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { createOrderService, createSubscriptionService } from "../services/checkout.service";
 import { clearUserPurchasesCache, recordPurchase, deletePendingPurchase } from "../services/db";
+import { getCurrentCoordinates } from "../utils/geolocation";
 import usePayment from "./usePayment";
 import useAuth from "./useAuth";
 
 export default function useCheckout() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [checkoutStep, setCheckoutStep] = useState(null); // "initiating" | "upfront_payment" | "verifying_upfront" | "setting_up_mandate" | "authorizing_mandate" | "verifying_mandate" | "mandate_pending"
+  const [checkoutStep, setCheckoutStep] = useState(null); // "capturing_location" | "initiating" | "upfront_payment" | "verifying_upfront" | "setting_up_mandate" | "authorizing_mandate" | "verifying_mandate" | "mandate_pending"
   const [checkoutError, setCheckoutError] = useState(null);
   const [pendingMandate, setPendingMandate] = useState(null); // { purchaseId, subscriptionId, razorpayKeyId }
 
@@ -19,20 +20,29 @@ export default function useCheckout() {
     paymentMethod,
     couponCode,
     serviceDetails,
+    SaleBy,
     onSuccess,
     onFailure,
     onCashPayment,
+    onLocationRequired,
   }) => {
     setCheckoutLoading(true);
     setCheckoutError(null);
     setCheckoutStep("initiating");
     let createdOrderId = null;
+    const finalSaleBy = SaleBy || serviceDetails?.SaleBy || null;
 
     try {
       // 1. Handle CASH payment
       if (paymentMethod === "CASH") {
         if (onCashPayment) {
-          onCashPayment({ serviceId, planId, couponCode: couponCode || null, serviceDetails });
+          onCashPayment({
+            serviceId,
+            planId,
+            couponCode: couponCode || null,
+            serviceDetails: { ...serviceDetails, SaleBy: finalSaleBy },
+            SaleBy: finalSaleBy,
+          });
         }
         setCheckoutStep(null);
         return;
@@ -40,7 +50,7 @@ export default function useCheckout() {
 
       // 2. Handle FULL (One-time) payment
       if (paymentMethod === "FULL" || paymentMethod === "BANKING") {
-        const orderResponse = await createOrderService(serviceId, planId, paymentMethod, couponCode);
+        const orderResponse = await createOrderService(serviceId, planId, paymentMethod, couponCode, finalSaleBy);
         const { razorpayOrderId, amount, currency, razorpayKeyId } = orderResponse;
         createdOrderId = razorpayOrderId;
 
@@ -58,6 +68,7 @@ export default function useCheckout() {
             paymentMethod: paymentMethod || "FULL",
             orderId: razorpayOrderId,
             purchaseId: razorpayOrderId,
+            ...(finalSaleBy ? { SaleBy: finalSaleBy, saleBy: finalSaleBy } : {}),
           },
           amount: amount,
           currency: currency || "INR",
@@ -112,10 +123,13 @@ export default function useCheckout() {
             activatedAt: nowFull.toISOString(),
             expiresAt: endFullDate.toISOString(),
           },
+          paymentStatus: "captured",
+          primaryPaymentId: paymentResponse.razorpay_payment_id,
           upfrontPayment: {
             paymentId: paymentResponse.razorpay_payment_id,
             paidAt: nowFull.toISOString(),
             amount: paidAmountRupees,
+            status: "captured",
           },
           mandate: null,
           // Backward compatibility fields
@@ -156,8 +170,30 @@ export default function useCheckout() {
 
       // 3. Handle EMI (Optimized 2-Step Flow)
       if (paymentMethod === "EMI") {
+        // Step 0: Mandatory Location Capture for EMI upfront payment
+        setCheckoutStep("capturing_location");
+        let location = null;
+        try {
+          location = await getCurrentCoordinates();
+        } catch (geoErr) {
+          console.error("Location capture failed for EMI upfront:", geoErr);
+          setCheckoutLoading(false);
+          setCheckoutStep(null);
+          setCheckoutError(geoErr.message);
+          if (onLocationRequired) {
+            onLocationRequired(geoErr);
+            return;
+          }
+          if (onFailure) {
+            onFailure(geoErr.message);
+            return;
+          }
+          throw geoErr;
+        }
+
         // Step 1A: Create order for 15% upfront down payment
-        const orderResponse = await createOrderService(serviceId, planId, "EMI", couponCode);
+        setCheckoutStep("initiating");
+        const orderResponse = await createOrderService(serviceId, planId, "EMI", couponCode, finalSaleBy, location);
         const { razorpayOrderId, amount, currency, razorpayKeyId } = orderResponse;
         createdOrderId = razorpayOrderId;
 
@@ -177,6 +213,8 @@ export default function useCheckout() {
             flow: "EMI_UPFRONT",
             orderId: razorpayOrderId,
             purchaseId: razorpayOrderId,
+            ...(finalSaleBy ? { SaleBy: finalSaleBy, saleBy: finalSaleBy } : {}),
+            ...(location?.latitude ? { latitude: String(location.latitude), longitude: String(location.longitude) } : {}),
           },
           amount: amount,
           currency: currency || "INR",
@@ -189,7 +227,8 @@ export default function useCheckout() {
         await verifyPayment(
           upfrontResponse.razorpay_order_id || razorpayOrderId,
           upfrontResponse.razorpay_payment_id,
-          upfrontResponse.razorpay_signature
+          upfrontResponse.razorpay_signature,
+          { location, paymentMethod: "EMI" }
         );
 
         const upfrontAmountRupees =
@@ -218,6 +257,7 @@ export default function useCheckout() {
           userEmail: currentUser?.email || "",
           paymentMethod: "EMI",
           status: "PENDING_MANDATE",
+          location: location,
           itemSnapshot: {
             serviceId: serviceId,
             serviceTitle: serviceDetails?.serviceName || "NeedMet Digital",
@@ -240,10 +280,14 @@ export default function useCheckout() {
             activatedAt: nowEmi.toISOString(),
             expiresAt: endEmiDate.toISOString(),
           },
+          paymentStatus: "captured",
+          primaryPaymentId: upfrontResponse.razorpay_payment_id,
           upfrontPayment: {
             paymentId: upfrontResponse.razorpay_payment_id,
             paidAt: nowEmi.toISOString(),
             amount: upfrontAmountRupees,
+            status: "captured",
+            location: location,
           },
           mandate: {
             subscriptionId: null,
@@ -333,6 +377,19 @@ export default function useCheckout() {
 
       if (!activeSubId || !activeKey) {
         setCheckoutStep("setting_up_mandate");
+        // Ensure purchase document in Firestore has captured upfrontPayment status for older records
+        try {
+          await recordPurchase({
+            purchaseId,
+            paymentStatus: "captured",
+            upfrontPayment: {
+              status: "captured",
+            },
+          });
+        } catch (syncErr) {
+          console.warn("Could not pre-sync upfrontPayment status before resume:", syncErr);
+        }
+
         const subResponse = await createSubscriptionService({ purchaseId });
         activeSubId = subResponse.subscriptionId;
         activeKey = subResponse.razorpayKeyId || activeKey;

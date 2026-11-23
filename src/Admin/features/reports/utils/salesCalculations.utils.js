@@ -328,21 +328,27 @@ export function aggregatePlanPerformance(purchases = []) {
 /**
  * Aggregates customer sales history, LTV, and purchasing frequency.
  */
-export function aggregateCustomerSales(purchases = [], payments = []) {
+export function aggregateCustomerSales(purchases = []) {
   const customerMap = new Map();
 
   purchases.forEach((p) => {
-    if (!p.userId) return;
-    const uid = String(p.userId);
+    const uid = String(p.user?.userId || p.userId || "");
+    if (!uid) return;
     const amount = Number(p.pricing?.finalPrice) || 0;
     const remaining = Number(p.pricing?.remainingAmount) || 0;
     const pDate = toTimestampMs(p.createdAt);
 
     if (!customerMap.has(uid)) {
       customerMap.set(uid, {
+        user: p.user || {
+          userId: uid,
+          userName: p.user?.userName || p.userName || "Customer",
+          phone: p.user?.phone || p.phone || p.userPhone || "",
+        },
         userId: uid,
-        userName: p.userName || "Customer",
-        email: p.userEmail || null,
+        userName: p.user?.userName || p.userName || "Customer",
+        phone: p.user?.phone || p.phone || p.userPhone || null,
+        email: p.user?.email || p.userEmail || null,
         totalOrders: 0,
         confirmedPurchases: 0,
         totalSpent: 0,
@@ -402,8 +408,15 @@ export function extractEmiInstallmentLedger(purchases = []) {
 
       const ledgerItem = {
         purchaseId: p.id,
-        userId: p.userId,
-        userName: p.userName || "Customer",
+        user: p.user || {
+          userId: p.user?.userId || p.userId,
+          userName: p.user?.userName || p.userName || "Customer",
+          phone: p.user?.phone || p.phone || p.userPhone || "",
+        },
+        SaleBy: p.SaleBy || p.saleBy || null,
+        userId: p.user?.userId || p.userId,
+        userName: p.user?.userName || p.userName || "Customer",
+        phone: p.user?.phone || p.phone || p.userPhone || "",
         serviceTitle: p.itemSnapshot?.serviceTitle || "NeedMet Service",
         planTitle: p.itemSnapshot?.planTitle || "Plan",
         subscriptionId: p.mandate?.subscriptionId || "N/A",

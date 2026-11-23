@@ -184,42 +184,42 @@ export default function DesktopPlansTable({
                         to={`/service/${plan.serviceId || plan.id}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-lg p-1.5 text-slate-700 bg-white border border-slate-300/80 shadow-2xs hover:bg-[#e8f5ee] hover:text-[#0f5c3e] hover:border-[#0f5c3e]/40 transition"
+                        className="  text-slate-700  hover:bg-[#e8f5ee] hover:text-[#0f5c3e]  transition"
                         title="View on Storefront"
                       >
-                        <span className="material-symbols-outlined text-base">open_in_new</span>
+                        <span className="material-symbols-outlined text-base icon-lg">open_in_new</span>
                       </Link>
 
                       <Link
                         to={`/admin/plans/edit/${plan.id}`}
-                        className="rounded-lg p-1.5 text-slate-700 bg-white border border-slate-300/80 shadow-2xs hover:bg-slate-100 hover:text-slate-900 transition"
+                        className=" text-slate-700  hover:bg-[#e8f5ee] hover:text-[#0f5c3e]  transition"
                         title="Edit Service & Plans"
                       >
-                        <span className="material-symbols-outlined text-base">edit</span>
+                        <span className="material-symbols-outlined text-base icon-lg">edit</span>
                       </Link>
 
                       <button
                         type="button"
                         onClick={() => onCloneClick?.(plan)}
-                        className="rounded-lg p-1.5 text-slate-700 bg-white border border-slate-200 hover:border-slate-300 shadow-2xs hover:bg-[#e8f5ee] hover:text-[#0f5c3e] transition cursor-pointer"
+                        className=" text-slate-700  hover:bg-[#e8f5ee] hover:text-[#0f5c3e]  transition"
                         title="Clone Plan"
                         aria-label={`Clone ${plan.name}`}
                       >
-                        <span className="material-symbols-outlined text-base">content_copy</span>
+                        <span className="material-symbols-outlined text-base icon-lg">content_copy</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => onToggleStatus(plan)}
                         disabled={actionInProgress === plan.id}
-                        className={`rounded-lg p-1.5 border transition cursor-pointer shadow-2xs ${
+                        className={`rounded-lg  transition cursor-pointer  ${
                           isPublished
-                            ? "bg-amber-50 text-amber-800 border-amber-200/70 hover:bg-amber-100"
-                            : "bg-emerald-50 text-emerald-800 border-emerald-200/70 hover:bg-emerald-100"
+                            ? " text-amber-800  "
+                            : " text-emerald-800  hover:bg-emerald-100"
                         }`}
                         title={isPublished ? "Soft-Archive Service" : "Publish Service"}
                       >
-                        <span className="material-symbols-outlined text-base">
+                        <span className="material-symbols-outlined text-base icon-lg">
                           {actionInProgress === plan.id
                             ? "progress_activity"
                             : isPublished
@@ -232,10 +232,10 @@ export default function DesktopPlansTable({
                         type="button"
                         onClick={() => onDeleteClick(plan)}
                         disabled={actionInProgress === plan.id}
-                        className="rounded-lg p-1.5 bg-red-50 text-red-700 border border-red-200/70 shadow-2xs hover:bg-red-100 transition cursor-pointer disabled:opacity-40"
+                        className="rounded-lg  text-red-700  transition cursor-pointer disabled:opacity-40"
                         title="Permanently Delete Service"
                       >
-                        <span className="material-symbols-outlined text-base">delete</span>
+                        <span className="material-symbols-outlined text-base icon-lg1`">delete</span>
                       </button>
                     </div>
                   </td>

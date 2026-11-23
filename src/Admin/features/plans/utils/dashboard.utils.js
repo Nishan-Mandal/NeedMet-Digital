@@ -165,14 +165,17 @@ export function formatEmiScheduleSummary(sub) {
 
   const durationDays = getSafeDurationDays(sub);
   const months = Math.max(Math.round(durationDays / 30), 1);
-  const autoCycles = Math.max(months - 1, 1);
+  const autoCycles = Math.max(months - 1, 0);
 
   const rawCycles =
-    sub.totalCycles !== undefined && sub.totalCycles !== null
+    sub.totalCycles !== undefined && sub.totalCycles !== null && sub.totalCycles !== ""
       ? sub.totalCycles
       : sub.emiConfig?.totalCycles;
 
-  const cycles = Number(rawCycles) || autoCycles;
+  const cycles =
+    rawCycles !== undefined && rawCycles !== null && rawCycles !== "" && Number(rawCycles) >= 0
+      ? Number(rawCycles)
+      : autoCycles;
 
   let upfrontDisplay = "";
   if (upfrontType === "percentage") {

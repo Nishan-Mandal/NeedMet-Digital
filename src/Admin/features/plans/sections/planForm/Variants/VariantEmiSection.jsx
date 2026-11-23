@@ -1,5 +1,5 @@
 import React from "react";
-import { getDefaultMonthlyEmiCycles } from "../../../utils/planForm.utils";
+import { getDefaultMonthlyEmiCycles, getDurationInMonths } from "../../../utils/planForm.utils";
 
 export default function VariantEmiSection({
   activeVariant = {},
@@ -11,6 +11,7 @@ export default function VariantEmiSection({
     return null;
   }
 
+  const durationMonths = getDurationInMonths(activeVariant);
   const defaultCycles = getDefaultMonthlyEmiCycles(activeVariant);
 
   const upfrontVal =
@@ -18,7 +19,7 @@ export default function VariantEmiSection({
       ? activeVariant.upfrontValue
       : "";
   const cyclesVal =
-    activeVariant.totalCycles !== undefined && activeVariant.totalCycles !== null && activeVariant.totalCycles !== ""
+    activeVariant.totalCycles !== undefined && activeVariant.totalCycles !== null
       ? activeVariant.totalCycles
       : defaultCycles;
   const billingDayVal =
@@ -69,6 +70,9 @@ export default function VariantEmiSection({
         <div className="space-y-1">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-slate-800">Monthly EMI Cycles</label>
+            <span className="text-[11px] font-semibold text-[#0f5c3e]">
+              Default: {defaultCycles} ({durationMonths}M - 1)
+            </span>
           </div>
           <input
             type="text"
@@ -119,7 +123,7 @@ export default function VariantEmiSection({
           <strong className="text-[#0f5c3e] font-bold">
             ₹{Number(activeCalc.emiAmount || 0).toLocaleString("en-IN")}/mo
           </strong>{" "}
-          ({activeCalc.cycles || 1} mos, on the {billingDayVal}th)
+          ({activeCalc.cycles ?? 0} {activeCalc.cycles === 1 ? "cycle" : "cycles"}, on the {billingDayVal}th)
         </span>
       </div>
     </div>

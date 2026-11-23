@@ -1,11 +1,14 @@
-const purchases={
+const purchase = {
   // 1. Customer & Ownership
-  userId: "user_abc123",
-  userName: "Rahul Sharma",        // ✨ Added: Customer display name for admin tables & receipts
+
+  userId: "usr_abc123",
+  userName: "Ramesh Kumar",
+  phone: "+919876543210",
+  SaleBy: "John Doe",
   paymentMethod: "FULL" | "EMI",
 
   // 2. Authoritative Life-cycle Status (Strict FSM)
-  // PENDING_PAYMENT | PENDING_MANDATE | ACTIVE | COMPLETED | CANCELLED | REFUNDED
+  // "PENDING_PAYMENT" | "PENDING_MANDATE" | "ACTIVE" | "COMPLETED" | "CANCELLED" | "REFUNDED"
   status: "ACTIVE",
 
   // 3. Service & Plan Snapshot (Captured at checkout)
@@ -27,20 +30,21 @@ const purchases={
     finalPrice: 25000,
     upfrontAmount: 5000,
     remainingAmount: 20000,
-    couponCode: "WELCOME5K"
+    couponCode: "WELCOME5K" // string or null
   },
 
-  // 5. Access Window
+  // 5. Access Window (Firestore Timestamps)
   accessWindow: {
-    activatedAt: Timestamp,
-    expiresAt: Timestamp
+    activatedAt: Timestamp, // null when pending
+    expiresAt: Timestamp   // null when pending
   },
 
   // 6. Upfront Settlement Link
   upfrontPayment: {
-    paymentId: "pay_xyz789",
-    paidAt: Timestamp,
-    amount: 5000
+    paymentId: "pay_xyz789", // null when pending
+    paidAt: Timestamp,       // null when pending
+    amount: 5000,
+    status: "CAPTURED"       // "PENDING" | "CAPTURED"
   },
 
   // 7. Mandate & EMI Ledger (null for FULL payment)
@@ -55,15 +59,15 @@ const purchases={
     installments: [
       {
         cycleIndex: 1,
-        dueDate: "2026-12-10T00:00:00Z",
+        dueDate: "2026-12-10T00:00:00.000Z",
         amount: 4000,
-        status: "PAID",
+        status: "PAID",            // "PENDING" | "PAID" | "FAILED"
         paymentId: "pay_mandate_001",
         paidAt: Timestamp
       },
       {
         cycleIndex: 2,
-        dueDate: "2027-01-10T00:00:00Z",
+        dueDate: "2027-01-10T00:00:00.000Z",
         amount: 4000,
         status: "PENDING",
         paymentId: null,

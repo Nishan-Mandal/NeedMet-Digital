@@ -2,7 +2,6 @@ import {
   NotepadText,
   TicketCheck,
   Banknote,
-  ShoppingBag,
   CreditCard,
   TrendingUp,
 } from "lucide-react";
@@ -41,16 +40,9 @@ export const navTree = [
   },
   {
     type: "link",
-    to: "/admin/purchases",
-    label: "Purchases",
-    icon: ShoppingBag,
-    description: "Customer purchase ledger & plans",
-  },
-  {
-    type: "link",
-    to: "/admin/payments",
-    label: "Payments",
+    to: "/admin/transactions",
+    label: "Transactions",
     icon: CreditCard,
-    description: "Payment gateway logs & settlements",
+    description: "Purchases, gateway payments & upcoming EMIs",
   },
 ];

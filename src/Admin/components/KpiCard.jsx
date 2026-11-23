@@ -93,25 +93,26 @@ export default function KpiCard({
 
   const content = (
     <>
-      <div className="flex items-center justify-between gap-3 mb-2.5">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 line-clamp-1 font-heading">
+      <div className="flex items-center justify-between gap-2 mb-1.5 sm:mb-2.5">
+        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 line-clamp-1 font-heading">
           {displayTitle}
         </span>
         {Icon && (
           <div
-            className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${theme.iconBg}`}
+            className={`w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl border flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${theme.iconBg}`}
           >
-            <Icon size={19} />
+            <Icon size={15} className="sm:hidden" />
+            <Icon size={18} className="hidden sm:block" />
           </div>
         )}
       </div>
 
-      <div className="flex items-baseline justify-between gap-2 mt-auto">
+      <div className="flex items-baseline justify-between gap-1.5 mt-auto">
         {loading ? (
-          <div className="h-8 w-24 bg-slate-200 animate-pulse rounded-lg mt-1" />
+          <div className="h-6 sm:h-8 w-20 sm:w-24 bg-slate-200 animate-pulse rounded-lg mt-1" />
         ) : (
           <div
-            className={`text-2xl sm:text-3xl font-extrabold font-heading tracking-tight transition-colors ${computedValueColor}`}
+            className={`text-lg sm:text-2xl lg:text-3xl font-extrabold font-heading tracking-tight transition-colors ${computedValueColor}`}
           >
             {value !== undefined && value !== null ? value : "—"}
           </div>
@@ -119,7 +120,7 @@ export default function KpiCard({
 
         {badgeText && (
           <span
-            className={`text-[10px] font-bold font-heading px-2 py-0.5 rounded-full border shrink-0 ${
+            className={`text-[9px] sm:text-[10px] font-bold font-heading px-1.5 sm:px-2 py-0.2 sm:py-0.5 rounded-full border shrink-0 ${
               badgeType && COLOR_VARIANTS[badgeType]
                 ? COLOR_VARIANTS[badgeType].badge
                 : theme.badge
@@ -132,7 +133,7 @@ export default function KpiCard({
 
       {/* Trend indicator or secondary subtitle */}
       {(trend || displaySubtitle) && (
-        <div className="flex items-center gap-2 mt-2 pt-1 border-t border-slate-100 text-xs text-slate-500">
+        <div className="flex items-center gap-1.5 mt-1 sm:mt-2 pt-1 border-t border-slate-100 text-[10px] sm:text-xs text-slate-500">
           {trend && (
             <span
               className={`inline-flex items-center gap-0.5 font-bold shrink-0 ${
@@ -143,9 +144,9 @@ export default function KpiCard({
                   : "text-slate-500"
               }`}
             >
-              {trend.direction === "up" && <TrendingUp size={13} />}
-              {trend.direction === "down" && <TrendingDown size={13} />}
-              {trend.direction === "neutral" && <Minus size={13} />}
+              {trend.direction === "up" && <TrendingUp size={11} />}
+              {trend.direction === "down" && <TrendingDown size={11} />}
+              {trend.direction === "neutral" && <Minus size={11} />}
               {trend.value}
             </span>
           )}
@@ -159,7 +160,7 @@ export default function KpiCard({
     </>
   );
 
-  const baseClasses = `group p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs transition-all duration-200 flex flex-col justify-between ${
+  const baseClasses = `group p-3 sm:p-4 lg:p-5 rounded-xl sm:rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition-all duration-200 flex flex-col justify-between ${
     to ? `cursor-pointer hover:shadow-md hover:-translate-y-0.5 ${theme.borderHover}` : ""
   } ${className}`;
 

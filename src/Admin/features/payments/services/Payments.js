@@ -107,6 +107,31 @@ export function normalizePayment(d, id = null) {
     };
   }
 
+  // Phone normalization
+  const rawPhone = (
+    data.phone ||
+    data.contact ||
+    data.userPhone ||
+    data.customerPhone ||
+    data.phoneNumber ||
+    data.mobile ||
+    data.customerMobile ||
+    data.payerPhone ||
+    (typeof data.user === "object" ? (data.user?.phone || data.user?.phoneNumber || data.user?.contact || data.user?.mobile) : null) ||
+    data.upfrontPayment?.contact ||
+    data.upfrontPayment?.phone ||
+    ""
+  );
+  const cleanPhoneStr = String(rawPhone || "").trim();
+  const phone = (cleanPhoneStr === "null" || cleanPhoneStr === "undefined") ? "" : cleanPhoneStr;
+
+  const user = {
+    userId: data.userId || "",
+    userName: data.userName || data.payerName || data.customerName || data.name || "Customer",
+    phone,
+    email: data.email || data.userEmail || data.customerEmail || "",
+  };
+
   return {
     id: docId,
     // 1. Transaction Context
@@ -114,6 +139,11 @@ export function normalizePayment(d, id = null) {
     userName: data.userName || data.payerName || data.customerName || data.name || "",
     orderId: data.orderId || data.purchaseId || "",
     subscriptionId: data.subscriptionId || null,
+    phone,
+    userPhone: phone,
+    customerPhone: phone,
+    contact: phone,
+    user,
 
     // 2. Gateway Event Data
     gateway: data.gateway || data.provider || "RAZORPAY",
@@ -135,6 +165,78 @@ export function normalizePayment(d, id = null) {
 
     // Timestamp
     createdAt: parseDate(data.createdAt || data.timestamp || data.date),
+  };
+}
+
+/**
+ * Pure memory filter and paginator for payments.
+ */
+export function filterAndPaginatePayments(paymentsList = [], {
+  page = 1,
+  limit: pageSize = 15,
+  pageSize: explicitPageSize,
+  search = "",
+  status = "all",
+} = {}) {
+  const finalPageSize = explicitPageSize || pageSize || 15;
+  let payments = [...paymentsList];
+
+  // Calculate metrics strictly from the payment model attributes
+  const metrics = {
+    totalCount: payments.length,
+    totalVolume: payments.reduce((acc, p) => acc + (p.status === "SUCCESS" ? p.amount : 0), 0),
+    successfulCount: payments.filter((p) => p.status === "SUCCESS").length,
+    pendingMandateCount: payments.filter((p) => p.status === "PENDING_MANDATE").length,
+    pendingCount: payments.filter((p) => p.status === "PENDING").length,
+    failedCount: payments.filter((p) => p.status === "FAILED").length,
+    refundedCount: payments.filter((p) => p.status === "REFUNDED").length,
+  };
+
+  // Filter by status ("ALL", "SUCCESS", "FAILED", "REFUNDED")
+  if (status && status.toLowerCase() !== "all") {
+    const targetStatus = status.toUpperCase();
+    payments = payments.filter((p) => p.status === targetStatus);
+  }
+
+  // Search filter across model attributes
+  if (search && search.trim()) {
+    const s = search.trim().toLowerCase();
+    payments = payments.filter(
+      (p) =>
+        (p.id && p.id.toLowerCase().includes(s)) ||
+        (p.userId && p.userId.toLowerCase().includes(s)) ||
+        (p.userName && p.userName.toLowerCase().includes(s)) ||
+        (p.orderId && p.orderId.toLowerCase().includes(s)) ||
+        (p.subscriptionId && p.subscriptionId.toLowerCase().includes(s)) ||
+        (p.gateway && p.gateway.toLowerCase().includes(s)) ||
+        (p.bank && p.bank.toLowerCase().includes(s)) ||
+        (p.cardLast4 && String(p.cardLast4).includes(s)) ||
+        (p.refund?.refundId && p.refund.refundId.toLowerCase().includes(s)) ||
+        (p.error?.code && p.error.code.toLowerCase().includes(s))
+    );
+  }
+
+  // Sort descending by createdAt
+  payments.sort((a, b) => {
+    const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return tB - tA;
+  });
+
+  const total = payments.length;
+  const startIndex = (page - 1) * finalPageSize;
+  const paginated = payments.slice(startIndex, startIndex + finalPageSize);
+
+  return {
+    success: true,
+    payments: paginated,
+    metrics,
+    pagination: {
+      total,
+      page,
+      limit: finalPageSize,
+      totalPages: Math.ceil(total / finalPageSize) || 1,
+    },
   };
 }
 
@@ -163,65 +265,14 @@ export const getPayments = async ({
 
   try {
     const snap = await getDocs(query(collection(db, "payments"), limit(250)));
-    let payments = snap.docs.map((d) => normalizePayment(d, d.id));
+    const paymentsList = snap.docs.map((d) => normalizePayment(d, d.id));
 
-    // Calculate metrics strictly from the payment model attributes
-    const metrics = {
-      totalCount: payments.length,
-      totalVolume: payments.reduce((acc, p) => acc + (p.status === "SUCCESS" ? p.amount : 0), 0),
-      successfulCount: payments.filter((p) => p.status === "SUCCESS").length,
-      pendingMandateCount: payments.filter((p) => p.status === "PENDING_MANDATE").length,
-      pendingCount: payments.filter((p) => p.status === "PENDING").length,
-      failedCount: payments.filter((p) => p.status === "FAILED").length,
-      refundedCount: payments.filter((p) => p.status === "REFUNDED").length,
-    };
-
-    // Filter by status ("ALL", "SUCCESS", "FAILED", "REFUNDED")
-    if (status && status.toLowerCase() !== "all") {
-      const targetStatus = status.toUpperCase();
-      payments = payments.filter((p) => p.status === targetStatus);
-    }
-
-    // Search filter across model attributes
-    if (search && search.trim()) {
-      const s = search.trim().toLowerCase();
-      payments = payments.filter(
-        (p) =>
-          (p.id && p.id.toLowerCase().includes(s)) ||
-          (p.userId && p.userId.toLowerCase().includes(s)) ||
-          (p.userName && p.userName.toLowerCase().includes(s)) ||
-          (p.orderId && p.orderId.toLowerCase().includes(s)) ||
-          (p.subscriptionId && p.subscriptionId.toLowerCase().includes(s)) ||
-          (p.gateway && p.gateway.toLowerCase().includes(s)) ||
-          (p.bank && p.bank.toLowerCase().includes(s)) ||
-          (p.cardLast4 && String(p.cardLast4).includes(s)) ||
-          (p.refund?.refundId && p.refund.refundId.toLowerCase().includes(s)) ||
-          (p.error?.code && p.error.code.toLowerCase().includes(s))
-      );
-    }
-
-    // Sort descending by createdAt
-    payments.sort((a, b) => {
-      const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return tB - tA;
+    return filterAndPaginatePayments(paymentsList, {
+      page,
+      limit: pageSize,
+      search,
+      status,
     });
-
-    const total = payments.length;
-    const startIndex = (page - 1) * pageSize;
-    const paginated = payments.slice(startIndex, startIndex + pageSize);
-
-    return {
-      success: true,
-      payments: paginated,
-      metrics,
-      pagination: {
-        total,
-        page,
-        limit: pageSize,
-        totalPages: Math.ceil(total / pageSize) || 1,
-      },
-    };
   } catch (err) {
     console.error("Error loading payments from Firestore:", err);
     throw err;
@@ -246,6 +297,7 @@ export const updatePaymentStatus = async (id, newStatus) => {
 
 export default {
   getPayments,
+  filterAndPaginatePayments,
   updatePaymentStatus,
   normalizePayment,
 };

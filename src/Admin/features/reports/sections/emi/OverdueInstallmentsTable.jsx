@@ -65,8 +65,8 @@ export default function OverdueInstallmentsTable({ overdue = [], loading = false
                         <div className="w-5 h-5 rounded-full bg-rose-50 text-rose-700 flex items-center justify-center shrink-0 border border-rose-200">
                           <User size={11} />
                         </div>
-                        <span className="truncate max-w-[140px]" title={item.userName}>
-                          {item.userName}
+                        <span className="truncate max-w-[140px]" title={item.user?.userName || item.userName}>
+                          {item.user?.userName || item.userName}
                         </span>
                       </div>
                     </td>
@@ -105,7 +105,7 @@ export default function OverdueInstallmentsTable({ overdue = [], loading = false
                     </td>
                     <td className="py-2.5 px-3 text-right whitespace-nowrap">
                       <Link
-                        to={`/admin/purchases?search=${encodeURIComponent(item.purchaseId)}`}
+                        to={`/admin/transactions?tab=purchases&search=${encodeURIComponent(item.purchaseId)}`}
                         className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 hover:underline"
                       >
                         <span>Inspect Order</span>

@@ -8,6 +8,7 @@ import { functions } from "../config/firebase";
  * @param {string} data.planId
  * @param {string} data.paymentMethod - e.g., "Full" or "Split"
  * @param {string} [data.couponCode]
+ * @param {string} [data.SaleBy] - The salesman name passed to Cloud Function
  * @returns {Promise<Object>} The order details including Razorpay order ID if applicable.
  */
 export const createOrderCallable = httpsCallable(functions, "createOrder");

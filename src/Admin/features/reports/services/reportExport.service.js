@@ -35,6 +35,8 @@ export function exportSalesReportCsv(purchases = [], filename = "needmet-sales-r
     "Purchase ID",
     "Customer Name",
     "User ID",
+    "Customer Phone",
+    "Sold By",
     "Service Title",
     "Plan Title",
     "Category",
@@ -51,8 +53,10 @@ export function exportSalesReportCsv(purchases = [], filename = "needmet-sales-r
 
   const rows = purchases.map((p) => [
     escapeCsv(p.id),
-    escapeCsv(p.userName || "Customer"),
-    escapeCsv(p.userId || ""),
+    escapeCsv(p.user?.userName || p.userName || "Customer"),
+    escapeCsv(p.user?.userId || p.userId || ""),
+    escapeCsv(p.user?.phone || p.phone || p.userPhone || ""),
+    escapeCsv(p.SaleBy || p.saleBy || p.itemSnapshot?.SaleBy || "Direct"),
     escapeCsv(p.itemSnapshot?.serviceTitle || ""),
     escapeCsv(p.itemSnapshot?.planTitle || ""),
     escapeCsv(p.itemSnapshot?.category || ""),
@@ -95,8 +99,8 @@ export function exportPaymentLedgerCsv(payments = [], filename = "needmet-paymen
   const rows = payments.map((p) => [
     escapeCsv(p.id),
     escapeCsv(p.orderId || ""),
-    escapeCsv(p.userName || "Customer"),
-    escapeCsv(p.userId || ""),
+    escapeCsv(p.user?.userName || p.userName || "Customer"),
+    escapeCsv(p.user?.userId || p.userId || ""),
     escapeCsv(p.subscriptionId || "None"),
     escapeCsv(p.gateway || "RAZORPAY"),
     escapeCsv(p.paymentType || "FULL"),
@@ -247,8 +251,8 @@ export function exportRefundReportCsv(payments = [], filename = "needmet-refunds
     escapeCsv(p.refund?.refundId || "N/A"),
     escapeCsv(p.id),
     escapeCsv(p.orderId || ""),
-    escapeCsv(p.userName || "Customer"),
-    escapeCsv(p.userId || ""),
+    escapeCsv(p.user?.userName || p.userName || "Customer"),
+    escapeCsv(p.user?.userId || p.userId || ""),
     escapeCsv(p.refund?.amount || p.amount || 0),
     escapeCsv(p.refund?.refundedAt || p.createdAt || ""),
   ]);

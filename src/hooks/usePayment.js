@@ -57,11 +57,11 @@ export default function usePayment() {
   /**
    * Verifies the Razorpay signature via Cloud Functions
    */
-  const verifyPayment = async (razorpay_order_id, razorpay_payment_id, razorpay_signature) => {
+  const verifyPayment = async (razorpay_order_id, razorpay_payment_id, razorpay_signature, extraData = {}) => {
     setPaymentLoading(true);
     setPaymentError(null);
     try {
-      const data = await verifyPaymentService(razorpay_order_id, razorpay_payment_id, razorpay_signature);
+      const data = await verifyPaymentService(razorpay_order_id, razorpay_payment_id, razorpay_signature, extraData);
       return data;
     } catch (err) {
       setPaymentError(err.message || "Payment verification failed");

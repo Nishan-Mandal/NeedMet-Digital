@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Users, Search, ExternalLink, User, Copy, Check } from "lucide-react";
 
@@ -22,10 +22,10 @@ export default function TopCustomersSalesSection({ customers = [], loading = fal
   const filtered = (customers || []).filter((c) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
-    return (
-      c.userName?.toLowerCase().includes(q) ||
-      c.userId?.toLowerCase().includes(q)
-    );
+    const name = (c.user?.userName || c.userName || "").toLowerCase();
+    const uid = (c.user?.userId || c.userId || "").toLowerCase();
+    const phone = (c.user?.phone || c.phone || "").toLowerCase();
+    return name.includes(q) || uid.includes(q) || phone.includes(q);
   });
 
   return (
@@ -85,20 +85,20 @@ export default function TopCustomersSalesSection({ customers = [], loading = fal
                       <div className="w-7 h-7 rounded-full bg-[#e8f5ee] text-[#0f5c3e] flex items-center justify-center shrink-0">
                         <User size={13} />
                       </div>
-                      <span className="font-bold text-slate-900 text-sm truncate max-w-[140px]" title={c.userName}>
-                        {c.userName}
+                      <span className="font-bold text-slate-900 text-sm truncate max-w-[140px]" title={c.user?.userName || c.userName}>
+                        {c.user?.userName || c.userName}
                       </span>
                     </div>
                   </td>
 
                   <td className="py-3 px-3 whitespace-nowrap">
                     <div className="flex items-center gap-1">
-                      <span className="font-mono text-xs text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 max-w-[120px] truncate" title={c.userId}>
-                        {c.userId}
+                      <span className="font-mono text-xs text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 max-w-[120px] truncate" title={c.user?.userId || c.userId}>
+                        {c.user?.userId || c.userId}
                       </span>
                       <button
                         type="button"
-                        onClick={() => handleCopy(c.userId)}
+                        onClick={() => handleCopy(c.user?.userId || c.userId)}
                         className="p-1 text-slate-400 hover:text-[#0f5c3e] rounded"
                         title="Copy UID"
                       >
@@ -149,7 +149,7 @@ export default function TopCustomersSalesSection({ customers = [], loading = fal
 
                   <td className="py-3 px-3 text-right whitespace-nowrap">
                     <Link
-                      to={`/admin/purchases?search=${encodeURIComponent(c.userId)}`}
+                      to={`/admin/transactions?tab=purchases&search=${encodeURIComponent(c.userId)}`}
                       className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0f5c3e] hover:underline"
                     >
                       <span>Orders</span>

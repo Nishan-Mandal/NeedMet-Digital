@@ -18,7 +18,8 @@ export default function CashCodeModal({ isOpen, onClose, serviceId, planId, coup
     setLoading(true);
     setError(null);
     try {
-      const result = await verifyCashPaymentService(serviceId, planId, couponCode, code.trim());
+      const saleByName = serviceDetails?.SaleBy || null;
+      const result = await verifyCashPaymentService(serviceId, planId, couponCode, code.trim(), saleByName);
       onClose();
 
       const metadata = {

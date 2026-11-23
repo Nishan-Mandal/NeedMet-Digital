@@ -3,7 +3,6 @@ import {
   TicketCheck,
   Banknote,
   PlusCircle,
-  ShoppingBag,
   CreditCard,
   TrendingUp,
 } from "lucide-react";
@@ -47,24 +46,24 @@ export const PAGE_META = {
     description: "Issue cryptographically secure store credit codes with immutable audit records.",
     icon: Banknote,
   },
-  "/admin/purchases": {
-    title: "Purchases",
-    description: "Customer plan purchase ledger, subscriptions, and fulfillment records.",
-    icon: ShoppingBag,
-  },
-  "/admin/orders": {
-    title: "Purchases",
-    description: "Customer plan purchase ledger, subscriptions, and fulfillment records.",
-    icon: ShoppingBag,
-  },
-  "/admin/payments": {
-    title: "Transactions & Payments",
-    description: "Payment gateway logs, settlements, refunds, and transaction audit trails.",
+  "/admin/transactions": {
+    title: "Transactions",
+    description: "Customer purchases, payment gateway settlements & upcoming EMI schedules.",
     icon: CreditCard,
   },
-  "/admin/transactions": {
-    title: "Transactions & Payments",
-    description: "Payment gateway logs, settlements, refunds, and transaction audit trails.",
+  "/admin/purchases": {
+    title: "Transactions",
+    description: "Customer purchases, payment gateway settlements & upcoming EMI schedules.",
+    icon: CreditCard,
+  },
+  "/admin/orders": {
+    title: "Transactions",
+    description: "Customer purchases, payment gateway settlements & upcoming EMI schedules.",
+    icon: CreditCard,
+  },
+  "/admin/payments": {
+    title: "Transactions",
+    description: "Customer purchases, payment gateway settlements & upcoming EMI schedules.",
     icon: CreditCard,
   },
 };

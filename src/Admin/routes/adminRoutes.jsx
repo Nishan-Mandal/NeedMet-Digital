@@ -5,13 +5,12 @@ const PlansDashboard = lazy(() => import("../features/plans/pages/PlansDashboard
 const PlanForm = lazy(() => import("../features/plans/pages/PlanForm"));
 const Coupons = lazy(() => import("../features/coupons/pages/Coupons"));
 const CashCodes = lazy(() => import("../features/cashcodes/pages/CashCodes"));
-const Purchases = lazy(() => import("../features/purchases/pages/Purchases"));
-const Payments = lazy(() => import("../features/payments/pages/Payments"));
+const Transactions = lazy(() => import("../features/transactions/pages/Transactions"));
 const SalesReportDashboard = lazy(() => import("../features/reports/pages/SalesReportDashboard"));
 
 /**
  * Admin portal route declarations
- * Includes Sales Reports, Plans & Services, Coupons, Cash Codes, Purchases, and Payments
+ * Includes Sales Reports, Plans & Services, Coupons, Cash Codes, and unified Transactions
  */
 export const adminRoutes = [
   {
@@ -51,22 +50,21 @@ export const adminRoutes = [
     element: <CashCodes />,
   },
   {
+    path: "admin/transactions",
+    element: <Transactions />,
+  },
+  {
     path: "admin/purchases",
-    element: <Purchases />,
+    element: <Transactions defaultTab="purchases" />,
   },
   {
     path: "admin/orders",
-    element: <Navigate to="/admin/purchases" replace />,
+    element: <Transactions defaultTab="purchases" />,
   },
   {
     path: "admin/payments",
-    element: <Payments />,
-  },
-  {
-    path: "admin/transactions",
-    element: <Navigate to="/admin/payments" replace />,
+    element: <Transactions defaultTab="payments" />,
   },
 ];
 
 export default adminRoutes;
-

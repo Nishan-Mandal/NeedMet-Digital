@@ -58,9 +58,20 @@ export default function UpcomingInstallmentsTable({ upcoming = [], onInspectOrde
                       <div className="w-5 h-5 rounded-full bg-[#e8f5ee] text-[#0f5c3e] flex items-center justify-center shrink-0">
                         <User size={11} />
                       </div>
-                      <span className="truncate max-w-[140px]" title={item.userName}>
-                        {item.userName}
-                      </span>
+                      <div className="min-w-0">
+                        <span className="truncate max-w-[140px] block leading-tight" title={item.user?.userName || item.userName}>
+                          {item.user?.userName || item.userName}
+                        </span>
+                        {(item.user?.phone || item.customerPhone || item.phone) ? (
+                          <a
+                            href={`tel:${item.user?.phone || item.customerPhone || item.phone}`}
+                            className="text-[10px] text-slate-500 hover:text-[#0f5c3e] font-normal block"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {item.user?.phone || item.customerPhone || item.phone}
+                          </a>
+                        ) : null}
+                      </div>
                     </div>
                   </td>
                   <td className="py-2.5 px-3 whitespace-nowrap">
@@ -93,7 +104,7 @@ export default function UpcomingInstallmentsTable({ upcoming = [], onInspectOrde
                   </td>
                   <td className="py-2.5 px-3 text-right whitespace-nowrap">
                     <Link
-                      to={`/admin/purchases?search=${encodeURIComponent(item.purchaseId)}`}
+                      to={`/admin/transactions?tab=purchases&search=${encodeURIComponent(item.purchaseId)}`}
                       className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0f5c3e] hover:underline"
                     >
                       <span>View Order</span>

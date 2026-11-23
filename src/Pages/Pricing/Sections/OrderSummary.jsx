@@ -1,12 +1,22 @@
-import Container from "../../../Components/layout/Container";
-
 import CouponInput from "./CouponInput";
 import PaymentSelector from "./PaymentSelector";
 import PriceBreakdown from "./PriceBreakDown";
 import CheckoutButton from "./CheckoutButton";
 import HelpCard from "./HelpCard";
 
-export default function OrderSummary({ currentPlan, pricing, paymentMethod, setPaymentMethod, onApplyCoupon, couponMessage, couponLoading, onCheckout, checkoutLoading }) {
+export default function OrderSummary({
+  currentPlan,
+  pricing,
+  paymentMethod,
+  setPaymentMethod,
+  onApplyCoupon,
+  couponMessage,
+  couponLoading,
+  onCheckout,
+  checkoutLoading,
+  saleBy,
+  setSaleBy,
+}) {
     return (
         <div
             className=" rounded-3xl" >
@@ -22,6 +32,7 @@ export default function OrderSummary({ currentPlan, pricing, paymentMethod, setP
                             isLoading={couponLoading}
                         />
                     </div>
+
                     <PaymentSelector
                         paymentMethod={paymentMethod}
                         setPaymentMethod={setPaymentMethod} />

@@ -3,9 +3,12 @@ import { Link, useParams } from "react-router-dom";
 import usePricing from "../../hooks/usePricing";
 import useCheckout from "../../hooks/useCheckout";
 import useCoupon from "../../hooks/useCoupon";
+import useAuth from "../../hooks/useAuth";
 import { fetchServiceWithPlans } from "../../services/firebase/service";
 import LoginPromptModal from "../../Components/ui/LoginPromptModal";
+import LocationPermissionModal from "../../Components/ui/LocationPermissionModal";
 import CashCodeModal from "./Sections/CashCodeModal";
+import PriceSalesModal from "./Sections/PriceSalesModal";
 import ServiceHero from "./Sections/ServiceHero";
 import FeatureGrid from "./Sections/FeatureGrid";
 import PlanSelector from "./Sections/PlanSelector";
@@ -20,6 +23,7 @@ import { TIMELINE } from "../../data/Timeline";
 
 export default function ServiceDetails() {
   const { id } = useParams();
+  const { currentUser } = useAuth();
 
   const [service, setService] = useState(null);
   const [plansArray, setPlansArray] = useState([]);
@@ -29,9 +33,13 @@ export default function ServiceDetails() {
 
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("FULL");
+  const [saleBy, setSaleBy] = useState("");
   const [showOrderSummary, setShowOrderSummary] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCashModal, setShowCashModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showPriceSalesModal, setShowPriceSalesModal] = useState(false);
+  const [locationErrorMessage, setLocationErrorMessage] = useState("");
   const [cashContext, setCashContext] = useState(null);
 
   const { applyCoupon, couponData, couponError, couponLoading } = useCoupon();
@@ -106,9 +114,12 @@ export default function ServiceDetails() {
     setShowAuthModal,
     setCashContext,
     setShowCashModal,
+    setShowLocationModal,
+    setLocationErrorMessage,
     service,
     currentPlan,
     pricing,
+    saleBy,
   });
 
   // Re-validate coupon when payment method or plan changes
@@ -141,6 +152,15 @@ export default function ServiceDetails() {
 
   const stepFeedback = getCheckoutStepFeedback(checkoutStep, paymentMethod);
 
+  const handleOpenPriceSalesModal = () => {
+    if (!currentUser) {
+      setShowAuthModal(true);
+      return;
+    }
+    setShowOrderSummary(false);
+    setShowPriceSalesModal(true);
+  };
+
   return (
     <div className="relative">
       {/* Checkout Loading Modal */}
@@ -150,8 +170,31 @@ export default function ServiceDetails() {
         paymentMethod={paymentMethod}
       />
 
-      {/* Auth & Cash Modals */}
+      {/* Auth, Cash, Location & Price/Sales Modals */}
       <LoginPromptModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      <PriceSalesModal
+        isOpen={showPriceSalesModal}
+        onClose={() => setShowPriceSalesModal(false)}
+        onConfirm={() => {
+          setShowPriceSalesModal(false);
+          handleCheckout();
+        }}
+        currentPlan={currentPlan}
+        pricing={pricing}
+        paymentMethod={paymentMethod}
+        saleBy={saleBy}
+        setSaleBy={setSaleBy}
+        service={service}
+      />
+      <LocationPermissionModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onRetry={() => {
+          setShowLocationModal(false);
+          handleCheckout();
+        }}
+        errorMessage={locationErrorMessage}
+      />
       <CashCodeModal
         isOpen={showCashModal}
         onClose={() => setShowCashModal(false)}
@@ -193,8 +236,10 @@ export default function ServiceDetails() {
                 onApplyCoupon={handleApplyCoupon}
                 couponMessage={couponMessage}
                 couponLoading={couponLoading}
-                onCheckout={handleCheckout}
+                onCheckout={handleOpenPriceSalesModal}
                 checkoutLoading={checkoutLoading}
+                saleBy={saleBy}
+                setSaleBy={setSaleBy}
               />
             </div>
           </aside>
@@ -253,10 +298,9 @@ export default function ServiceDetails() {
                 couponMessage={couponMessage}
                 couponLoading={couponLoading}
                 checkoutLoading={checkoutLoading}
-                onCheckout={() => {
-                  setShowOrderSummary(false);
-                  handleCheckout();
-                }}
+                saleBy={saleBy}
+                setSaleBy={setSaleBy}
+                onCheckout={handleOpenPriceSalesModal}
               />
             </div>
           </div>

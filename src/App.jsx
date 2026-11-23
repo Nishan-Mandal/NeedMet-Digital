@@ -22,8 +22,7 @@ const PlansDashboard = lazy(() => import("./Admin/features/plans/pages/PlansDash
 const PlanForm = lazy(() => import("./Admin/features/plans/pages/PlanForm"));
 const Coupons = lazy(() => import("./Admin/features/coupons/pages/Coupons"));
 const CashCodes = lazy(() => import("./Admin/features/cashcodes/pages/CashCodes"));
-const Purchases = lazy(() => import("./Admin/features/purchases/pages/Purchases"));
-const Payments = lazy(() => import("./Admin/features/payments/pages/Payments"));
+const Transactions = lazy(() => import("./Admin/features/transactions/pages/Transactions"));
 const SalesReportDashboard = lazy(() => import("./Admin/features/reports/pages/SalesReportDashboard"));
 
 function App() {
@@ -60,10 +59,10 @@ function App() {
                 <Route path="plans/clone/:clonePlanId" element={<PlanForm />} />
                 <Route path="coupons" element={<Coupons />} />
                 <Route path="cash-codes" element={<CashCodes />} />
-                <Route path="purchases" element={<Purchases />} />
-                <Route path="orders" element={<Navigate to="/admin/purchases" replace />} />
-                <Route path="payments" element={<Payments />} />
-                <Route path="transactions" element={<Navigate to="/admin/payments" replace />} />
+                <Route path="transactions" element={<Transactions />} />
+                <Route path="purchases" element={<Transactions defaultTab="purchases" />} />
+                <Route path="orders" element={<Transactions defaultTab="purchases" />} />
+                <Route path="payments" element={<Transactions defaultTab="payments" />} />
               </Route>
             </Route>
           </Routes>

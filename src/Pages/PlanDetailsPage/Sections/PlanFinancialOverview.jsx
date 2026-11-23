@@ -35,7 +35,10 @@ export default function PlanFinancialOverview({ purchase }) {
       purchase.status === "active" ||
       purchase.planAccessStatus === "active");
   const rawCycles = Number(purchase.mandate?.totalCycles ?? purchase.pricing?.totalCycles ?? purchase.mandate?.totalCount ?? 0);
-  const totalCycles = rawCycles > 0 ? rawCycles : (durationDays > 30 ? Math.round(durationDays / 30) : 3);
+  const totalCycles =
+    rawCycles > 0
+      ? rawCycles
+      : (durationDays > 30 ? Math.max(Math.round(durationDays / 30) - 1, 0) : 0);
   const emiAmount = Number(
     purchase.mandate?.emiAmount ??
       purchase.pricing?.emiAmount ??

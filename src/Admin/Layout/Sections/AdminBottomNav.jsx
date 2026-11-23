@@ -3,6 +3,7 @@ import {
   NotepadText,
   TicketCheck,
   Banknote,
+  CreditCard,
   SquareArrowOutUpRight,
 } from "lucide-react";
 
@@ -10,8 +11,7 @@ import {
  * Mobile Bottom Navigation Bar for NeedMate Admin
  * Visible only on mobile screens (< lg breakpoint).
  * Provides fast 1-tap thumb navigation between Plans, Coupons, Cash Codes,
- * and quick access to the Live Site.
- * (Purchases & Payments are accessible via the top hamburger menu).
+ * Transactions, and quick access to the Live Site.
  */
 export default function AdminBottomNav({
   mobileMenuOpen,
@@ -24,6 +24,11 @@ export default function AdminBottomNav({
     pathname.startsWith("/admin/plans") && pathname !== "/admin/plans/new";
   const isCouponsActive = pathname.startsWith("/admin/coupons");
   const isCashCodesActive = pathname.startsWith("/admin/cash-codes");
+  const isTransactionsActive =
+    pathname.startsWith("/admin/transactions") ||
+    pathname.startsWith("/admin/purchases") ||
+    pathname.startsWith("/admin/orders") ||
+    pathname.startsWith("/admin/payments");
 
   const closeMenu = () => {
     if (mobileMenuOpen && setMobileMenuOpen) {
@@ -94,7 +99,26 @@ export default function AdminBottomNav({
           <span className="text-[10px] mt-1 tracking-tight truncate max-w-[60px]">Cash Codes</span>
         </NavLink>
 
-        {/* 4. Live Site */}
+        {/* 4. Transactions */}
+        <NavLink
+          to="/admin/transactions"
+          onClick={closeMenu}
+          className={`flex-1 flex flex-col items-center justify-center py-1.5 transition-all duration-150 active:scale-95 ${
+            isTransactionsActive
+              ? "text-[#0f5c3e] font-bold"
+              : "text-slate-600 hover:text-slate-900 font-semibold"
+          }`}
+        >
+          <div className="relative">
+            <CreditCard size={20} className={isTransactionsActive ? "stroke-[2.5]" : "stroke-2"} />
+            {isTransactionsActive && (
+              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#0f5c3e]" />
+            )}
+          </div>
+          <span className="text-[10px] mt-1 tracking-tight truncate max-w-[64px]">Transactions</span>
+        </NavLink>
+
+        {/* 5. Live Site */}
         <a
           href="/"
           target="_blank"

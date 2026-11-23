@@ -53,9 +53,9 @@ export default function PriceBreakdown({ plan, pricing }) {
       {isEmi ? (
         <div className="mt-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-3.5 space-y-2.5">
           <div className="flex items-center justify-between">
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600/10 px-2 py-0.5 text-xs font-semibold text-emerald-800">
-              <span className="material-symbols-outlined text-xs">payments</span>
-              {pricing.upfrontDisplay || "15%"} Down Payment Model
+            <span className="text-xs font-semibold text-emerald-800 flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm">schedule</span>
+              EMI Breakdown
             </span>
             <span className="text-xs text-gray-500">Total Plan: {formatCurrency(pricing.grand)}</span>
           </div>
@@ -63,8 +63,8 @@ export default function PriceBreakdown({ plan, pricing }) {
           <div className="border-t border-emerald-100 pt-2 space-y-2">
             <div className="flex items-baseline justify-between">
               <div>
-                <span className="block text-xs font-medium text-gray-600">Payable Today ({pricing.upfrontDisplay || "15%"} Upfront)</span>
-                <span className="text-xs text-emerald-700 font-medium">Step 1: One-time payment</span>
+                <span className="block text-xs font-medium text-gray-600">Payable Today</span>
+                <span className="text-xs text-emerald-700 font-medium">Step 1: Down payment</span>
               </div>
               <span className="text-xl font-bold text-emerald-900">
                 {formatCurrency(pricing.upfrontAmount)}

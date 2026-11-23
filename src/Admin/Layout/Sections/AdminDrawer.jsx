@@ -32,16 +32,12 @@ export default function AdminDrawer({
   };
 
   const isRouteActive = (to) => {
-    if (to === "/admin/purchases") {
+    if (to === "/admin/transactions") {
       return (
+        location.pathname === "/admin/transactions" ||
         location.pathname === "/admin/purchases" ||
-        location.pathname === "/admin/orders"
-      );
-    }
-    if (to === "/admin/payments") {
-      return (
-        location.pathname === "/admin/payments" ||
-        location.pathname === "/admin/transactions"
+        location.pathname === "/admin/orders" ||
+        location.pathname === "/admin/payments"
       );
     }
     return location.pathname === to;

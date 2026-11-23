@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ReceiptText,
@@ -14,8 +14,10 @@ import {
   Check,
   Package,
   Copy,
+  Phone,
 } from "lucide-react";
 import { formatStatus } from "./OrdersTableSection";
+import { cleanImageUrl } from "../services/Purchases";
 
 const MANDATE_STATUS_CONFIG = {
   AUTHORIZED: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -106,20 +108,26 @@ export default function OrderDetailModal({ order, onClose }) {
         <div className="overflow-y-auto px-5 sm:px-6 py-5 space-y-4 text-xs text-slate-600">
           {/* ── 1. Service & Plan Information ── */}
           <div className="bg-slate-50/60 border border-slate-200/70 rounded-xl p-4 flex items-start gap-3.5">
-            {order.itemSnapshot?.imageUrl ? (
+            {cleanImageUrl(order.itemSnapshot?.imageUrl) ? (
               <img
-                src={order.itemSnapshot.imageUrl}
+                src={cleanImageUrl(order.itemSnapshot.imageUrl)}
                 alt={order.itemSnapshot.planTitle || "Service"}
                 className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover border border-slate-200/80 shrink-0 shadow-2xs bg-white"
                 onError={(e) => {
                   e.currentTarget.style.display = "none";
+                  if (e.currentTarget.nextElementSibling) {
+                    e.currentTarget.nextElementSibling.style.display = "flex";
+                  }
                 }}
               />
-            ) : (
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl border border-slate-200/80 bg-white flex items-center justify-center shrink-0 shadow-2xs text-slate-400">
-                <Package size={22} className="text-[#0f5c3e]/70" />
-              </div>
-            )}
+            ) : null}
+            <div
+              className={`w-14 h-14 sm:w-16 sm:h-16 rounded-xl border border-slate-200/80 bg-white flex items-center justify-center shrink-0 shadow-2xs text-slate-400 ${
+                cleanImageUrl(order.itemSnapshot?.imageUrl) ? "hidden" : ""
+              }`}
+            >
+              <Package size={22} className="text-[#0f5c3e]/70" />
+            </div>
 
             <div className="min-w-0 flex-1 space-y-1.5">
               <div className="flex items-center gap-2 flex-wrap">
@@ -164,19 +172,29 @@ export default function OrderDetailModal({ order, onClose }) {
                       Included Plan Features
                     </span>
                     <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-slate-600">
-                      {order.itemSnapshot.features.map((feat, idx) => (
-                        <li key={idx} className="flex items-center gap-1.5">
-                          <Check size={12} className="text-[#0f5c3e] shrink-0" />
-                          <span className="truncate">{feat}</span>
-                        </li>
-                      ))}
+                      {order.itemSnapshot.features.map((feat, idx) => {
+                        const featureText =
+                          typeof feat === "object" && feat !== null
+                            ? feat.title
+                              ? feat.desc
+                                ? `${feat.title}: ${feat.desc}`
+                                : feat.title
+                              : feat.desc || ""
+                            : String(feat);
+                        return (
+                          <li key={idx} className="flex items-center gap-1.5">
+                            <Check size={12} className="text-[#0f5c3e] shrink-0" />
+                            <span className="truncate">{featureText}</span>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 )}
             </div>
           </div>
 
-          {/* ── 2. Customer & Ownership (User ID + Customer Name with Copy) ── */}
+          {/* ── 2. Customer & Ownership (User ID, Customer Name, Phone, SaleBy) ── */}
           <div className="bg-white border border-slate-200/80 rounded-xl p-4 space-y-3">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
               <User size={13} className="text-[#0f5c3e]" />
@@ -186,19 +204,19 @@ export default function OrderDetailModal({ order, onClose }) {
               <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100">
                 <span className="text-slate-400 block text-xs font-medium">Customer Name</span>
                 <span className="font-bold text-slate-900 text-sm mt-0.5 block">
-                  {order.userName || "Customer"}
+                  {order.user?.userName || order.userName || "Customer"}
                 </span>
               </div>
               <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100">
                 <span className="text-slate-400 block text-xs font-medium">User ID (UID)</span>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="font-mono font-semibold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200 text-xs break-all">
-                    {order.userId || "N/A"}
+                    {order.user?.userId || order.userId || "N/A"}
                   </span>
-                  {order.userId && (
+                  {(order.user?.userId || order.userId) && (
                     <button
                       type="button"
-                      onClick={() => handleCopy(order.userId, "userId")}
+                      onClick={() => handleCopy(order.user?.userId || order.userId, "userId")}
                       className="p-1 text-slate-500 hover:text-[#0f5c3e] hover:bg-emerald-50 rounded transition cursor-pointer"
                       title="Copy User ID"
                     >
@@ -210,6 +228,43 @@ export default function OrderDetailModal({ order, onClose }) {
                     </button>
                   )}
                 </div>
+              </div>
+              <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-xs font-medium">Customer Phone</span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  {(order.user?.phone || order.phone || order.userPhone) ? (
+                    <>
+                      <a
+                        href={`tel:${order.user?.phone || order.phone || order.userPhone}`}
+                        className="font-semibold text-slate-800 hover:text-[#0f5c3e] hover:underline text-xs inline-flex items-center gap-1"
+                        title="Click to call customer"
+                      >
+                        <Phone size={11} className="text-[#0f5c3e] shrink-0" />
+                        <span>{order.user?.phone || order.phone || order.userPhone}</span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(order.user?.phone || order.phone || order.userPhone, "phone")}
+                        className="p-1 text-slate-500 hover:text-[#0f5c3e] hover:bg-emerald-50 rounded transition cursor-pointer"
+                        title="Copy Phone Number"
+                      >
+                        {copiedKey === "phone" ? (
+                          <Check size={13} className="text-emerald-600" />
+                        ) : (
+                          <Copy size={13} />
+                        )}
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-slate-400 text-xs italic">N/A</span>
+                  )}
+                </div>
+              </div>
+              <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-xs font-medium">Sold By (Salesman)</span>
+                <span className="font-bold text-[#0f5c3e] text-sm mt-0.5 block">
+                  {order.SaleBy || order.saleBy || order.itemSnapshot?.SaleBy || "Direct / Online"}
+                </span>
               </div>
             </div>
           </div>
@@ -334,7 +389,7 @@ export default function OrderDetailModal({ order, onClose }) {
                 <span className="text-slate-400 block text-xs">Payment ID</span>
                 {order.upfrontPayment?.paymentId ? (
                   <Link
-                    to={`/admin/payments?search=${encodeURIComponent(
+                    to={`/admin/transactions?tab=payments&search=${encodeURIComponent(
                       order.upfrontPayment.paymentId
                     )}`}
                     className="font-mono text-xs text-[#0f5c3e] hover:text-[#0b462f] hover:underline font-semibold bg-white px-2 py-0.5 rounded border border-slate-200 inline-flex items-center gap-1 break-all mt-0.5"
@@ -467,7 +522,7 @@ export default function OrderDetailModal({ order, onClose }) {
                                 <td className="py-2.5 px-3 font-mono text-xs text-slate-600 max-w-[140px]">
                                   {inst.paymentId ? (
                                     <Link
-                                      to={`/admin/payments?search=${encodeURIComponent(
+                                      to={`/admin/transactions?tab=payments&search=${encodeURIComponent(
                                         inst.paymentId
                                       )}`}
                                       className="text-[#0f5c3e] hover:text-[#0b462f] bg-slate-50 hover:bg-emerald-50 px-1.5 py-0.5 rounded border border-slate-200/80 hover:border-emerald-300 transition-colors inline-flex items-center gap-1 max-w-[130px]"

@@ -1,19 +1,23 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
 import {
   ReceiptText,
-  Clock,
   Eye,
-  CreditCard,
   User,
+  UserCheck,
   ExternalLink,
   Calendar,
-  ChevronDown,
   Tag,
   ShieldCheck,
-  IndianRupee,
   ArrowRight,
+  Phone,
+  Copy,
+  Check,
+  ShoppingBag,
+  BadgeIndianRupee,
 } from "lucide-react";
+import { Link } from "react-router-dom";
+import TransactionsTable from "../../transactions/components/TransactionsTable";
+import { cleanImageUrl } from "../services/Purchases";
 
 export const STATUS_CONFIG = {
   ACTIVE: {
@@ -50,9 +54,7 @@ export const STATUS_CONFIG = {
 
 export const formatStatus = (rawStatus) => {
   const normalized = String(rawStatus || "").toUpperCase();
-  if (STATUS_CONFIG[normalized]) {
-    return STATUS_CONFIG[normalized];
-  }
+  if (STATUS_CONFIG[normalized]) return STATUS_CONFIG[normalized];
   return {
     label: normalized.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
     badge: "bg-slate-100 text-slate-700 border-slate-200",
@@ -60,529 +62,544 @@ export const formatStatus = (rawStatus) => {
   };
 };
 
+/** Compact "Order Link" pill — reused across all three tables */
+export function OrderLink({ orderId, label = "Order Link" }) {
+  if (!orderId) return <span className="text-slate-400 text-xs italic">—</span>;
+  return (
+    <Link
+      to={`/admin/transactions?tab=purchases&search=${encodeURIComponent(orderId)}`}
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold text-[#0f5c3e] bg-[#e8f5ee] border border-[#d1fae5] hover:bg-[#0f5c3e] hover:text-white transition shadow-2xs group whitespace-nowrap"
+      title={`View order: ${orderId}`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <ShoppingBag size={11} className="shrink-0" />
+      <span>{label}</span>
+      <ExternalLink size={10} className="shrink-0 opacity-70 group-hover:opacity-100" />
+    </Link>
+  );
+}
+
+/** Customer avatar + name + phone cell — reused across all three tables */
+export function CustomerCell({ name, phone, userId }) {
+  const [copied, setCopied] = useState(false);
+  const displayName = name || "Customer";
+
+  const handleCopy = (e) => {
+    e.stopPropagation();
+    if (!phone) return;
+    navigator.clipboard.writeText(phone);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <div className="flex items-center gap-2.5 min-w-0">
+      <div className="w-8 h-8 rounded-full bg-[#e8f5ee] text-[#0f5c3e] flex items-center justify-center font-bold text-xs shrink-0 border border-[#d1fae5]/70">
+        {displayName.charAt(0).toUpperCase() || <User size={13} />}
+      </div>
+      <div className="min-w-0">
+        <div
+          className="font-semibold text-slate-900 text-sm truncate max-w-[160px] leading-snug"
+          title={displayName}
+        >
+          {displayName}
+        </div>
+        {phone ? (
+          <div className="flex items-center gap-1 mt-0.5" onClick={(e) => e.stopPropagation()}>
+            <a
+              href={`tel:${phone}`}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-[#0f5c3e] hover:underline"
+              title="Call customer"
+            >
+              <Phone size={10} className="text-[#0f5c3e] shrink-0" />
+              <span>{phone}</span>
+            </a>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="p-0.5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition cursor-pointer"
+              title={copied ? "Copied!" : "Copy phone"}
+            >
+              {copied ? <Check size={10} className="text-emerald-600" /> : <Copy size={10} />}
+            </button>
+          </div>
+        ) : (
+          <div className="text-[11px] text-slate-400 truncate max-w-[160px]">
+            {userId || "No phone"}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Salesman / Sold By avatar + name badge cell — prioritized across views */
+export function SalesmanCell({ name }) {
+  const isAssigned = Boolean(
+    name &&
+    name !== "—" &&
+    name.toLowerCase() !== "direct / online" &&
+    name.toLowerCase() !== "n/a"
+  );
+  const displayName = isAssigned ? name : (name === "—" ? "—" : (name || "Unassigned"));
+
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      <div className="w-7 h-7 rounded-full bg-[#e8f5ee] text-[#0f5c3e] flex items-center justify-center font-bold text-xs shrink-0 border border-[#d1fae5]/80 shadow-2xs">
+        {isAssigned ? displayName.charAt(0).toUpperCase() : <UserCheck size={12} />}
+      </div>
+      <div className="min-w-0">
+        <div
+          className="font-bold text-slate-900 text-xs sm:text-sm truncate max-w-[140px] leading-snug"
+          title={displayName}
+        >
+          {displayName}
+        </div>
+        <div className="text-[10px] text-[#0f5c3e] font-bold uppercase tracking-wider leading-none mt-0.5">
+          Salesman
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Amount + method badge cell */
+export function AmountMethodCell({ amount, method, currency = "INR" }) {
+  const methodStyles = {
+    FULL: "bg-emerald-50 text-emerald-800 border-emerald-200",
+    EMI: "bg-blue-50 text-blue-800 border-blue-200",
+    UPI: "bg-purple-50 text-purple-700 border-purple-200",
+    CARD: "bg-blue-50 text-blue-700 border-blue-200",
+    NETBANKING: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  };
+  const methodKey = (method || "").toUpperCase();
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="font-extrabold text-sm text-[#0f5c3e] font-heading">
+        ₹{Number(amount || 0).toLocaleString("en-IN")}
+      </div>
+      {method && (
+        <span
+          className={`inline-block text-[10px] px-2 py-0.5 rounded-md font-bold uppercase border shadow-2xs w-fit ${
+            methodStyles[methodKey] || "bg-slate-100 text-slate-700 border-slate-200"
+          }`}
+        >
+          {method}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function OrdersTableSection({
   loading = false,
   orders = [],
   searchQuery = "",
-  onInspect,
+  onInspect = () => {},
 }) {
   const [expandedRows, setExpandedRows] = useState({});
 
-  const toggleRow = (orderId) => {
-    setExpandedRows((prev) => ({
-      ...prev,
-      [orderId]: !prev[orderId],
-    }));
-  };
+  const toggleRow = (orderId) =>
+    setExpandedRows((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
 
   const expandAll = () => {
     const all = {};
-    orders.forEach((o) => {
-      all[o.id] = true;
-    });
+    orders.forEach((o) => { all[o.id] = true; });
     setExpandedRows(all);
   };
 
-  const collapseAll = () => {
-    setExpandedRows({});
-  };
+  const collapseAll = () => setExpandedRows({});
 
-  if (loading) {
+  // ── Column definitions ────────────────────────────────────────────
+  // Purchases Table: Customer | Sold By (Salesman) | Date | Service | Status | Amount & Type | Actions
+  const columns = [
+    { key: "customer",    header: "Customer",         align: "left" },
+    { key: "soldBy",      header: "Sold By",          align: "left" },
+    { key: "createdAt",   header: "Date",              align: "left" },
+    { key: "service",     header: "Service",           align: "left" },
+    { key: "status",      header: "Status",            align: "left" },
+    { key: "amountType",  header: "Amount & Type",     align: "left" },
+    { key: "action",      header: "Actions",           align: "right" },
+  ];
+
+  // Toolbar
+  const toolbar = (
+    <div className="flex items-center justify-between px-1 text-xs text-slate-500 py-1">
+      <span className="font-semibold text-slate-700">
+        Showing {orders.length} {orders.length === 1 ? "purchase" : "purchases"}
+      </span>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={expandAll}
+          className="text-xs font-semibold text-[#0f5c3e] hover:underline cursor-pointer"
+        >
+          Expand All
+        </button>
+        <span className="text-slate-300">•</span>
+        <button
+          type="button"
+          onClick={collapseAll}
+          className="text-xs font-semibold text-slate-500 hover:underline cursor-pointer"
+        >
+          Collapse All
+        </button>
+      </div>
+    </div>
+  );
+
+  // Desktop row renderer
+  const renderRow = (order) => {
+    const isExpanded = !!expandedRows[order.id];
+    const statusInfo = formatStatus(order.status);
+    const isEmi = order.paymentMethod === "EMI";
+    const name = order.user?.userName || order.userName || "Customer";
+    const phone = order.user?.phone || order.phone || order.userPhone || "";
+    const userId = order.user?.userId || order.userId || "";
+    const soldBy = order.SaleBy || order.saleBy || order.itemSnapshot?.SaleBy || "—";
+
     return (
-      <div className="p-16 text-center rounded-2xl bg-white border border-slate-200/60 shadow-xs text-slate-400 text-sm animate-pulse">
-        <div className="inline-block w-7 h-7 border-2 border-[#0f5c3e] border-t-transparent rounded-full animate-spin mb-3" />
-        <p className="font-semibold text-slate-700">Loading purchases from database...</p>
-      </div>
-    );
-  }
+      <React.Fragment key={order.id}>
+        <tr className="hover:bg-slate-50/80 transition-colors duration-150 cursor-pointer" onClick={() => toggleRow(order.id)}>
 
-  if (orders.length === 0) {
-    return (
-      <div className="p-16 text-center rounded-2xl bg-white border border-slate-200/60 shadow-xs text-slate-500">
-        <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200/50 flex items-center justify-center mx-auto mb-3 text-slate-600 shadow-2xs">
-          <ReceiptText size={32} />
-        </div>
-        <p className="font-bold text-slate-800 text-base">No Purchases Found</p>
-        <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-          {searchQuery
-            ? `No purchase records match "${searchQuery}". Try refining your search query.`
-            : "No customer purchase transactions recorded in the 'purchases' collection yet."}
-        </p>
-      </div>
-    );
-  }
+          {/* 1. Customer Name + Phone */}
+          <td className="px-4 py-4 align-middle">
+            <CustomerCell name={name} phone={phone} userId={userId} />
+          </td>
 
-  const paymentMethodStyles = {
-    FULL: "bg-blue-50 text-blue-700 border-blue-200",
-    EMI: "bg-purple-50 text-purple-700 border-purple-200",
-  };
+          {/* 2. Sold By / Salesman — Prioritized */}
+          <td className="px-4 py-4 align-middle whitespace-nowrap">
+            <SalesmanCell name={soldBy} />
+          </td>
 
-  return (
-    <div className="space-y-3 font-primary">
-      {/* Table toolbar / quick expansion control */}
-      <div className="flex items-center justify-between px-1 text-xs text-slate-500">
-        <span className="font-semibold text-slate-700">
-          Showing {orders.length} {orders.length === 1 ? "purchase" : "purchases"}
-        </span>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={expandAll}
-            className="text-xs font-semibold text-[#0f5c3e] hover:underline cursor-pointer"
-          >
-            Expand All
-          </button>
-          <span className="text-slate-300">•</span>
-          <button
-            type="button"
-            onClick={collapseAll}
-            className="text-xs font-semibold text-slate-500 hover:underline cursor-pointer"
-          >
-            Collapse All
-          </button>
-        </div>
-      </div>
+          {/* 3. Date */}
+          <td className="px-4 py-4 align-middle whitespace-nowrap">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+              <Calendar size={13} className="text-slate-400 shrink-0" />
+              <span>
+                {order.createdAt
+                  ? new Date(order.createdAt).toLocaleDateString("en-IN", {
+                      day: "numeric", month: "short", year: "numeric",
+                    })
+                  : "N/A"}
+              </span>
+            </div>
+          </td>
 
-      {/* ────────────────────────────────────────────────────────── */}
-      {/* ── DESKTOP VIEW (>= lg): Full Table Layout ─────────────── */}
-      {/* ────────────────────────────────────────────────────────── */}
-      <div className="hidden lg:block overflow-hidden rounded-2xl border border-slate-200/60 bg-white shadow-xs hover:shadow-sm transition-shadow duration-200">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-700 border-collapse">
-            <thead className="bg-[#0f5c3e] text-[11px] font-bold uppercase tracking-wider text-white border-b border-[#0f5c3e]">
-              <tr>
-                <th className="px-3 py-3.5 w-10 text-center text-white"></th>
-                <th className="px-4 py-3.5 text-white whitespace-nowrap">Purchase Date</th>
-                <th className="px-4 py-3.5 text-white">Customer</th>
-                <th className="px-4 py-3.5 text-white">Service & Plan</th>
-                <th className="px-4 py-3.5 text-white">Status</th>
-                <th className="px-4 py-3.5 text-white">Payment Method</th>
-                <th className="px-4 py-3.5 text-white">Amount</th>
-                <th className="px-4 py-3.5 text-right text-white min-w-[110px]">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {orders.map((order) => {
-                const isExpanded = !!expandedRows[order.id];
-                const statusInfo = formatStatus(order.status);
-                const isEmi = order.paymentMethod === "EMI";
+          {/* 4. Service & Plan */}
+          <td className="px-4 py-4 align-middle">
+            <div className="flex items-center gap-2 max-w-[200px]">
+              {cleanImageUrl(order.itemSnapshot?.imageUrl) ? (
+                <img
+                  src={cleanImageUrl(order.itemSnapshot.imageUrl)}
+                  alt=""
+                  className="w-7 h-7 rounded-lg object-cover border border-slate-200/80 shrink-0 shadow-2xs"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                    if (e.currentTarget.nextElementSibling) {
+                      e.currentTarget.nextElementSibling.style.display = "flex";
+                    }
+                  }}
+                />
+              ) : null}
+              <div
+                className={`w-7 h-7 rounded-lg bg-[#e8f5ee] border border-[#d1fae5] flex items-center justify-center shrink-0 ${
+                  cleanImageUrl(order.itemSnapshot?.imageUrl) ? "hidden" : ""
+                }`}
+              >
+                <Tag size={12} className="text-[#0f5c3e]" />
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold text-slate-900 text-xs truncate leading-snug" title={order.itemSnapshot?.serviceTitle}>
+                  {order.itemSnapshot?.serviceTitle || "NeedMet Service"}
+                </div>
+                <div className="text-[10px] text-[#0f5c3e] font-semibold truncate">
+                  {order.itemSnapshot?.planTitle || "Plan"}
+                </div>
+              </div>
+            </div>
+          </td>
 
-                return (
-                  <React.Fragment key={order.id}>
-                    <tr className="hover:bg-slate-50/80 transition-colors duration-150">
-                      {/* Expand/Collapse Chevron Button */}
-                      <td className="px-3 py-4 text-center align-middle">
-                        <button
-                          type="button"
-                          onClick={() => toggleRow(order.id)}
-                          aria-label={isExpanded ? "Collapse row" : "Expand row"}
-                          className="text-slate-400 hover:text-[#0f5c3e] p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
-                        >
-                          <ChevronDown
-                            size={16}
-                            className={`transform transition-transform duration-200 ${
-                              isExpanded ? "rotate-180 text-[#0f5c3e]" : ""
-                            }`}
-                          />
-                        </button>
-                      </td>
+          {/* 5. Status */}
+          <td className="px-4 py-4 align-middle whitespace-nowrap">
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border shadow-2xs ${statusInfo.badge}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`} />
+              {statusInfo.label}
+            </span>
+          </td>
 
-                      {/* 1. Purchase Date Only (No purchase ID) */}
-                      <td className="px-4 py-4 align-middle whitespace-nowrap">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                          <Calendar size={14} className="text-slate-500 shrink-0" />
-                          <span>
-                            {order.createdAt
-                              ? new Date(order.createdAt).toLocaleDateString("en-IN", {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                })
-                              : "N/A"}
-                          </span>
-                        </div>
-                      </td>
+          {/* 6. Amount & Type */}
+          <td className="px-4 py-4 align-middle whitespace-nowrap">
+            <AmountMethodCell
+              amount={order.pricing?.finalPrice}
+              method={order.paymentMethod}
+            />
+          </td>
 
-                      {/* 2. Customer Name Only (No UID) */}
-                      <td className="px-4 py-4 align-middle">
-                        <div className="flex items-center gap-2 text-sm text-slate-800 font-semibold">
-                          <div className="w-7 h-7 rounded-full bg-[#e8f5ee] text-[#0f5c3e] flex items-center justify-center shrink-0">
-                            <User size={13} />
-                          </div>
-                          <span className="truncate max-w-[160px]" title={order.userName || "Customer"}>
-                            {order.userName || "Customer"}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* 3. Service & Plan Snapshot */}
-                      <td className="px-4 py-4 align-middle">
-                        <div className="flex items-center gap-2.5 min-w-0 max-w-[220px]">
-                          {order.itemSnapshot?.imageUrl ? (
-                            <img
-                              src={order.itemSnapshot.imageUrl}
-                              alt=""
-                              className="w-8 h-8 rounded-lg object-cover border border-slate-200/80 shrink-0 shadow-2xs"
-                              onError={(e) => {
-                                e.currentTarget.style.display = "none";
-                              }}
-                            />
-                          ) : (
-                            <div className="w-8 h-8 rounded-lg bg-[#e8f5ee] border border-[#d1fae5] flex items-center justify-center shrink-0 text-[#0f5c3e]">
-                              <Tag size={13} />
-                            </div>
-                          )}
-                          <div className="min-w-0">
-                            <div
-                              className="font-semibold text-slate-900 text-sm truncate leading-snug"
-                              title={order.itemSnapshot?.serviceTitle}
-                            >
-                              {order.itemSnapshot?.serviceTitle || "NeedMet Service"}
-                            </div>
-                            <div className="text-xs text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
-                              <span className="font-semibold text-[#0f5c3e]">
-                                {order.itemSnapshot?.planTitle || "Plan"}
-                              </span>
-                              {order.itemSnapshot?.durationDays && (
-                                <span className="text-slate-400">• {order.itemSnapshot.durationDays}d</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* 4. Status Badge */}
-                      <td className="px-4 py-4 align-middle whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border shadow-2xs ${statusInfo.badge}`}
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`} />
-                          <span>{statusInfo.label}</span>
-                        </span>
-                      </td>
-
-                      {/* 5. Payment Method Badge */}
-                      <td className="px-4 py-4 align-middle whitespace-nowrap">
-                        <span
-                          className={`inline-block text-xs px-2.5 py-1 rounded-lg font-bold uppercase border shadow-2xs ${
-                            paymentMethodStyles[order.paymentMethod] ||
-                            "bg-slate-100 text-slate-700 border-slate-200"
-                          }`}
-                        >
-                          {order.paymentMethod || "FULL"}
-                        </span>
-                      </td>
-
-                      {/* 6. Amount (Bold, No Saved Amount) */}
-                      <td className="px-4 py-4 align-middle whitespace-nowrap">
-                        <div className="text-base font-bold font-heading text-[#0f5c3e]">
-                          ₹{Number(order.pricing?.finalPrice || 0).toLocaleString("en-IN")}
-                        </div>
-                      </td>
-
-                      {/* 7. Action: Details Button */}
-                      <td className="px-4 py-4 align-middle text-right whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => onInspect(order)}
-                          className="px-3 py-1.5 rounded-lg bg-white hover:bg-[#e8f5ee] hover:text-[#0f5c3e] text-slate-800 text-xs font-semibold inline-flex items-center gap-1.5 border border-slate-300/90 hover:border-[#0f5c3e]/40 transition cursor-pointer shadow-2xs hover:shadow-xs"
-                          title="View Details"
-                        >
-                          <Eye size={13} className="text-slate-700" />
-                          <span>Details</span>
-                        </button>
-                      </td>
-                    </tr>
-
-                    {/* Expanded Sub-Row: Detailed Financial & Validity Breakdown */}
-                    {isExpanded && (
-                      <tr className="bg-[#fcfdfc] border-b border-slate-200/70">
-                        <td colSpan={8} className="p-4 pl-12">
-                          <div className="rounded-xl bg-white border border-slate-200/80 p-3.5 space-y-2.5 text-sm shadow-2xs">
-                            {/* Financial Summary Strip */}
-                            <div className="flex items-center gap-4 text-slate-600 flex-wrap text-xs sm:text-sm">
-                              <span className="text-slate-400 font-semibold uppercase text-xs flex items-center gap-1">
-                                <IndianRupee size={13} className="text-[#0f5c3e]" />
-                                Financial:
-                              </span>
-                              <span>
-                                Original: <strong className="text-slate-800">₹{Number(order.pricing?.originalPrice || 0).toLocaleString()}</strong>
-                              </span>
-                              <span>
-                                Upfront: <strong className="text-slate-800">₹{Number(order.pricing?.upfrontAmount || 0).toLocaleString()}</strong>
-                              </span>
-                              {order.pricing?.remainingAmount > 0 && (
-                                <span>
-                                  Remaining: <strong className="text-slate-800">₹{Number(order.pricing?.remainingAmount || 0).toLocaleString()}</strong>
-                                </span>
-                              )}
-                              {order.pricing?.couponCode && (
-                                <span className="flex items-center gap-1">
-                                  <Tag size={12} className="text-amber-600" />
-                                  Coupon: <strong className="font-mono text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 text-xs">{order.pricing.couponCode}</strong>
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Access Window Quick Info */}
-                            <div className="flex items-center gap-3 text-slate-600 flex-wrap text-xs sm:text-sm">
-                              <span className="text-slate-400 font-semibold uppercase text-xs flex items-center gap-1">
-                                <Calendar size={13} className="text-[#0f5c3e]" />
-                                Validity:
-                              </span>
-                              <span>
-                                {order.derived?.isExpired ? (
-                                  <strong className="text-rose-600">Expired</strong>
-                                ) : order.derived?.remainingDays !== null ? (
-                                  <strong className="text-emerald-700">{order.derived.remainingDays} days active</strong>
-                                ) : (
-                                  <strong className="text-slate-700">Active Window</strong>
-                                )}
-                              </span>
-                              {order.itemSnapshot?.durationDays && (
-                                <span className="text-slate-500">({order.itemSnapshot.durationDays}d plan)</span>
-                              )}
-                            </div>
-
-                            {/* Mandate Summary (if EMI) */}
-                            {isEmi && order.mandate && (
-                              <div className="flex items-center gap-2 text-slate-600 flex-wrap text-xs sm:text-sm">
-                                <span className="text-slate-400 font-semibold uppercase text-xs flex items-center gap-1">
-                                  <ShieldCheck size={13} className="text-[#0f5c3e]" />
-                                  Mandate:
-                                </span>
-                                <span>
-                                  Status: <strong className="text-slate-800 font-bold">{order.mandate.status}</strong>
-                                </span>
-                                <span>
-                                  EMI: <strong className="text-slate-800">₹{Number(order.mandate?.emiAmount || 0).toLocaleString()}</strong>
-                                </span>
-                                {order.mandate.nextDebitDate && (
-                                  <span>
-                                    Next: <strong className="text-slate-800">{new Date(order.mandate.nextDebitDate).toLocaleDateString()}</strong>
-                                  </span>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Quick CTA to Full Inspect Modal */}
-                            <button
-                              type="button"
-                              onClick={() => onInspect(order)}
-                              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0f5c3e] hover:text-[#1a8a5a] hover:underline cursor-pointer ml-auto pt-1"
-                            >
-                              <span>Inspect Full Details & Schedule</span>
-                              <ArrowRight size={13} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ────────────────────────────────────────────────────────── */}
-      {/* ── MOBILE VIEW (< lg): Responsive Touch-Friendly Cards ─── */}
-      {/* ────────────────────────────────────────────────────────── */}
-      <div className="lg:hidden space-y-3.5">
-        {orders.map((order) => {
-          const isExpanded = !!expandedRows[order.id];
-          const statusInfo = formatStatus(order.status);
-          const isEmi = order.paymentMethod === "EMI";
-
-          return (
-            <div
-              key={order.id}
-              className="bg-white rounded-2xl border border-slate-200/70 p-4 shadow-xs hover:shadow-sm transition-shadow duration-200 space-y-3"
+          {/* 7. Actions */}
+          <td className="px-4 py-4 align-middle text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => onInspect(order)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#0f5c3e] bg-[#e8f5ee] hover:bg-[#0f5c3e] hover:text-white border border-[#d1fae5] transition-all duration-200 cursor-pointer shadow-2xs active:scale-95"
+              title="View Details"
             >
-              {/* Row 1: Customer Info & Status Badge */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-full bg-[#e8f5ee] text-[#0f5c3e] flex items-center justify-center shrink-0">
-                    <User size={13} />
+              <Eye size={12} />
+              <span>Details</span>
+            </button>
+          </td>
+        </tr>
+
+        {/* Expanded sub-row */}
+        {isExpanded && (
+          <tr className="bg-[#fcfdfc] border-b border-slate-200/70">
+            <td colSpan={7} className="p-4 pl-10">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-primary">
+                {/* Access Window */}
+                <div className="p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs space-y-1.5">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Access Window</span>
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+                    <ShieldCheck size={14} className="text-[#0f5c3e]" />
+                    <span>
+                      {order.accessWindow?.activatedAt
+                        ? new Date(order.accessWindow.activatedAt).toLocaleDateString("en-IN")
+                        : "Not Activated"}
+                    </span>
+                    <ArrowRight size={11} className="text-slate-400" />
+                    <span>
+                      {order.accessWindow?.expiresAt
+                        ? new Date(order.accessWindow.expiresAt).toLocaleDateString("en-IN")
+                        : "Ongoing"}
+                    </span>
                   </div>
-                  <span className="font-bold text-slate-900 text-sm truncate" title={order.userName || "Customer"}>
-                    {order.userName || "Customer"}
-                  </span>
+                  {order.derived?.remainingDays != null && (
+                    <span className="text-[11px] font-medium text-emerald-700">
+                      {order.derived.remainingDays} days remaining
+                    </span>
+                  )}
                 </div>
 
-                <span
-                  className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full border shrink-0 shadow-2xs ${statusInfo.badge}`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`} />
-                  <span>{statusInfo.label}</span>
+                {/* Financial Summary */}
+                <div className="p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Financial Summary</span>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Base Price:</span>
+                    <span className="font-semibold text-slate-800">
+                      ₹{(order.pricing?.originalPrice || 0).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  {Boolean(order.pricing?.discountAmount) && (
+                    <div className="flex justify-between text-emerald-700">
+                      <span>Discount ({order.pricing?.couponCode || "Promo"}):</span>
+                      <span className="font-semibold">-₹{order.pricing.discountAmount.toLocaleString("en-IN")}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t border-slate-100 pt-1 font-bold text-slate-900">
+                    <span>Final:</span>
+                    <span className="text-[#0f5c3e]">₹{(order.pricing?.finalPrice || 0).toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+
+                {/* Settlement */}
+                <div className="p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Settlement Status</span>
+                  <div className="text-slate-600">
+                    <span>Upfront Paid: </span>
+                    <span className="font-bold text-slate-900">
+                      ₹{(order.upfrontPayment?.amount ?? order.pricing?.upfrontAmount ?? 0).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  {isEmi && (
+                    <div className="text-slate-600">
+                      <span>Mandate: </span>
+                      <span className="font-bold text-slate-900 capitalize">{order.mandate?.status || "Authorized"}</span>
+                      <span className="block text-[11px] text-slate-400">
+                        {order.mandate?.paidCycles || 0} of {order.mandate?.totalCycles || 0} cycles settled
+                      </span>
+                    </div>
+                  )}
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => onInspect(order)}
+                      className="text-[#0f5c3e] hover:underline font-bold text-xs inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>View Full Order Ledger</span>
+                      <ExternalLink size={11} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </td>
+          </tr>
+        )}
+      </React.Fragment>
+    );
+  };
+
+  // Compact, High-Density Mobile Card
+  const renderMobileCard = (order) => {
+    const statusInfo = formatStatus(order.status);
+    const name = order.user?.userName || order.userName || "Customer";
+    const phone = order.user?.phone || order.phone || order.userPhone || "";
+    const soldBy = order.SaleBy || order.saleBy || order.itemSnapshot?.SaleBy || "";
+    const isEmi = order.paymentMethod === "EMI";
+    const finalPrice = Number(order.pricing?.finalPrice || 0);
+
+    return (
+      <div
+        key={order.id}
+        onClick={() => onInspect(order)}
+        className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-2xs hover:shadow-xs transition-all duration-150 space-y-2 cursor-pointer active:bg-slate-50/80"
+      >
+        {/* Row 1: Primary Header - Customer & Status on left, Amount & Method on right */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="w-7 h-7 rounded-full bg-[#e8f5ee] text-[#0f5c3e] flex items-center justify-center font-bold text-xs shrink-0 border border-[#d1fae5]/70">
+              {name.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-bold text-slate-900 text-xs sm:text-sm truncate max-w-[125px] leading-tight" title={name}>
+                  {name}
+                </span>
+                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.2 rounded-full border shrink-0 ${statusInfo.badge}`}>
+                  <span className={`w-1 h-1 rounded-full ${statusInfo.dot}`} />
+                  {statusInfo.label}
                 </span>
               </div>
-
-              {/* Row 2: Amount Banner (CashCode style) */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/80 border border-slate-200/60 shadow-2xs">
-                <div>
-                  <span className="text-[10px] text-slate-500 font-semibold block uppercase tracking-wider">
-                    Total Amount
-                  </span>
-                  <span className="text-lg font-bold font-heading text-[#0f5c3e]">
-                    ₹{Number(order.pricing?.finalPrice || 0).toLocaleString("en-IN")}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-500 font-semibold block uppercase tracking-wider">
-                    Payment Method
-                  </span>
-                  <span
-                    className={`inline-block text-[11px] px-2 py-0.5 rounded font-bold uppercase border shadow-2xs mt-0.5 ${
-                      paymentMethodStyles[order.paymentMethod] ||
-                      "bg-slate-100 text-slate-700 border-slate-200"
-                    }`}
+              {phone && (
+                <div className="flex items-center gap-1 mt-0.5" onClick={(e) => e.stopPropagation()}>
+                  <a
+                    href={`tel:${phone}`}
+                    className="inline-flex items-center gap-0.5 text-[11px] font-medium text-slate-500 hover:text-[#0f5c3e]"
                   >
-                    {order.paymentMethod || "FULL"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Row 3: Service & Plan Snapshot */}
-              <div className="flex items-center gap-2.5 p-2 rounded-xl bg-white border border-slate-100">
-                {order.itemSnapshot?.imageUrl ? (
-                  <img
-                    src={order.itemSnapshot.imageUrl}
-                    alt=""
-                    className="w-10 h-10 rounded-lg object-cover border border-slate-200/80 shrink-0 shadow-2xs"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
+                    <Phone size={9} className="text-[#0f5c3e] shrink-0" />
+                    <span>{phone}</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(phone);
                     }}
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-lg bg-[#e8f5ee] border border-[#d1fae5] flex items-center justify-center shrink-0 text-[#0f5c3e]">
-                    <Tag size={16} />
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-slate-900 text-sm truncate" title={order.itemSnapshot?.serviceTitle}>
-                    {order.itemSnapshot?.serviceTitle || "NeedMet Service"}
-                  </div>
-                  <div className="text-xs text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
-                    <span className="font-semibold text-[#0f5c3e]">
-                      {order.itemSnapshot?.planTitle || "Plan"}
-                    </span>
-                    {order.itemSnapshot?.durationDays && (
-                      <span className="text-slate-400">• {order.itemSnapshot.durationDays}d</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 4: Purchase Date & Validity */}
-              <div className="flex items-center justify-between text-xs text-slate-600 pt-0.5">
-                <div className="flex items-center gap-1.5 font-medium">
-                  <Calendar size={13} className="text-slate-400 shrink-0" />
-                  <span>
-                    {order.createdAt
-                      ? new Date(order.createdAt).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })
-                      : "N/A"}
-                  </span>
-                </div>
-
-                <div>
-                  {order.derived?.isExpired ? (
-                    <span className="text-rose-600 font-bold text-[11px]">Expired</span>
-                  ) : order.derived?.remainingDays !== null ? (
-                    <span className="text-[#0f5c3e] font-bold text-[11px] bg-[#e8f5ee] px-2 py-0.5 rounded-full border border-[#d1fae5]/70">
-                      {order.derived.remainingDays} days active
-                    </span>
-                  ) : (
-                    <span className="text-slate-500 text-[11px]">Active</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Row 5: Action Buttons (Details Button & Quick Expand) */}
-              <div className="pt-1 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => onInspect(order)}
-                  className="flex-1 py-2 px-3 rounded-xl bg-white hover:bg-[#e8f5ee] hover:text-[#0f5c3e] text-slate-800 text-xs font-semibold flex items-center justify-center gap-1.5 border border-slate-300/90 hover:border-[#0f5c3e]/40 transition cursor-pointer shadow-2xs hover:shadow-xs active:scale-[0.99]"
-                >
-                  <Eye size={13} className="text-slate-700" />
-                  <span>View Details</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => toggleRow(order.id)}
-                  aria-label={isExpanded ? "Collapse info" : "Quick info"}
-                  className={`p-2 rounded-xl border transition cursor-pointer shadow-2xs ${
-                    isExpanded
-                      ? "bg-[#0f5c3e] text-white border-[#0f5c3e]"
-                      : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
-                  }`}
-                  title={isExpanded ? "Hide breakdown" : "Show financial breakdown"}
-                >
-                  <ChevronDown
-                    size={16}
-                    className={`transform transition-transform duration-200 ${
-                      isExpanded ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* Mobile Quick Breakdown Dropdown */}
-              {isExpanded && (
-                <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-3 space-y-2 text-xs animate-in fade-in zoom-in-95 duration-150">
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-slate-400">Original Price:</span>
-                    <strong className="text-slate-800">
-                      ₹{Number(order.pricing?.originalPrice || 0).toLocaleString()}
-                    </strong>
-                  </div>
-
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-slate-400">Upfront Amount:</span>
-                    <strong className="text-slate-800">
-                      ₹{Number(order.pricing?.upfrontAmount || 0).toLocaleString()}
-                    </strong>
-                  </div>
-
-                  {order.pricing?.remainingAmount > 0 && (
-                    <div className="flex items-center justify-between text-slate-600">
-                      <span className="text-slate-400">Remaining (EMI):</span>
-                      <strong className="text-slate-800">
-                        ₹{Number(order.pricing.remainingAmount).toLocaleString()}
-                      </strong>
-                    </div>
-                  )}
-
-                  {order.pricing?.couponCode && (
-                    <div className="flex items-center justify-between text-slate-600 pt-1 border-t border-slate-200/50">
-                      <span className="text-slate-400">Coupon Code:</span>
-                      <strong className="font-mono text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 text-[10px]">
-                        {order.pricing.couponCode}
-                      </strong>
-                    </div>
-                  )}
-
-                  {isEmi && order.mandate && (
-                    <div className="flex items-center justify-between text-slate-600 pt-1 border-t border-slate-200/50">
-                      <span className="text-slate-400">Mandate Status:</span>
-                      <strong className="text-[#0f5c3e] font-bold">
-                        {order.mandate.status} (₹{Number(order.mandate.emiAmount || 0).toLocaleString()}/cycle)
-                      </strong>
-                    </div>
-                  )}
+                    className="p-0.5 text-slate-400 hover:text-slate-700"
+                    title="Copy phone"
+                  >
+                    <Copy size={9} />
+                  </button>
                 </div>
               )}
             </div>
-          );
-        })}
+          </div>
+
+          {/* Amount & Method: High prominence */}
+          <div className="text-right shrink-0">
+            <div className="text-base font-extrabold font-heading text-[#0f5c3e] leading-tight">
+              ₹{finalPrice.toLocaleString("en-IN")}
+            </div>
+            <span className={`inline-block text-[9px] px-1.5 py-0.2 rounded font-bold uppercase border mt-0.5 ${
+              isEmi
+                ? "bg-blue-50 text-blue-700 border-blue-200"
+                : "bg-emerald-50 text-emerald-800 border-emerald-200"
+            }`}>
+              {order.paymentMethod || "FULL"}
+            </span>
+          </div>
+        </div>
+
+        {/* Row 2: Prioritized Salesman Bar + Service snippet */}
+        <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-emerald-50/70 border border-emerald-100/90 text-xs">
+          {/* Salesman info with avatar and bold name */}
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <div className="w-5 h-5 rounded-full bg-[#0f5c3e] text-white flex items-center justify-center text-[10px] font-bold shrink-0 shadow-2xs">
+              {soldBy && soldBy !== "—" ? soldBy.charAt(0).toUpperCase() : <UserCheck size={10} />}
+            </div>
+            <div className="min-w-0 flex items-center gap-1">
+              <span className="text-[10px] uppercase font-bold text-emerald-800/80 tracking-wider shrink-0">
+                Sold By:
+              </span>
+              <span className="font-extrabold text-slate-900 text-xs truncate" title={soldBy}>
+                {soldBy || "Unassigned"}
+              </span>
+            </div>
+          </div>
+
+          {/* Service & Plan */}
+          <div className="flex items-center gap-1 text-[11px] text-slate-600 shrink-0 max-w-[140px] truncate">
+            {cleanImageUrl(order.itemSnapshot?.imageUrl) ? (
+              <img
+                src={cleanImageUrl(order.itemSnapshot.imageUrl)}
+                alt=""
+                className="w-4 h-4 rounded object-cover border border-slate-200 shrink-0"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                  if (e.currentTarget.nextElementSibling) {
+                    e.currentTarget.nextElementSibling.style.display = "block";
+                  }
+                }}
+              />
+            ) : null}
+            <Tag
+              size={10}
+              className={`text-[#0f5c3e] shrink-0 ${
+                cleanImageUrl(order.itemSnapshot?.imageUrl) ? "hidden" : ""
+              }`}
+            />
+            <span className="font-semibold text-slate-800 text-[11px] truncate" title={order.itemSnapshot?.serviceTitle}>
+              {order.itemSnapshot?.serviceTitle || "Service"}
+            </span>
+          </div>
+        </div>
+
+        {/* Row 3: Date on left, Details action on right */}
+        <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px] text-slate-500">
+          <div className="flex items-center gap-1 font-medium">
+            <Calendar size={11} className="text-slate-400 shrink-0" />
+            <span>
+              {order.createdAt
+                ? new Date(order.createdAt).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })
+                : "N/A"}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onInspect(order);
+            }}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-[#0f5c3e] bg-[#e8f5ee] hover:bg-[#0f5c3e] hover:text-white border border-[#d1fae5] transition-all cursor-pointer shadow-2xs active:scale-95"
+          >
+            <Eye size={11} />
+            <span>Details</span>
+          </button>
+        </div>
       </div>
-    </div>
+    );
+  };
+
+  return (
+    <TransactionsTable
+      columns={columns}
+      data={orders}
+      loading={loading}
+      loadingMessage="Loading purchases from database..."
+      emptyTitle="No Purchases Recorded"
+      emptyDescription={
+        searchQuery
+          ? `No purchases match "${searchQuery}". Try refining your search.`
+          : "No purchase orders found in the ledger."
+      }
+      emptyIcon={ReceiptText}
+      toolbar={toolbar}
+      renderRow={renderRow}
+      renderMobileCard={renderMobileCard}
+    />
   );
 }

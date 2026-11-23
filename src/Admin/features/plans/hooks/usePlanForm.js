@@ -161,6 +161,7 @@ export default function usePlanForm({ planId, cloneFromId, isEditMode, currentUs
         planType: "Custom",
         tag: "Special",
         price: 4999,
+        totalCycles: 1, // 45 days ~ 2 months: 2 - 1 = 1 recurring cycle
         features: JSON.parse(JSON.stringify(existingFeatures)),
       });
 
@@ -221,6 +222,31 @@ export default function usePlanForm({ planId, cloneFromId, isEditMode, currentUs
       const currentPlans = [...(prev.plans || prev.variants || [])];
       const target = { ...currentPlans[variantIndex], [field]: value };
 
+      // Auto update planType, duration, durationDays, and totalCycles when planType changes
+      if (field === "planType") {
+        if (value === "1 Month") {
+          target.duration = "1 Month";
+          target.durationDays = 30;
+          target.totalCycles = 0; // 1 - 1 = 0
+        } else if (value === "3 Months") {
+          target.duration = "3 Months";
+          target.durationDays = 92;
+          target.totalCycles = 2; // 3 - 1 = 2
+        } else if (value === "6 Months") {
+          target.duration = "6 Months";
+          target.durationDays = 184;
+          target.totalCycles = 5; // 6 - 1 = 5
+        } else if (value === "1 Year") {
+          target.duration = "12 Months";
+          target.durationDays = 365;
+          target.totalCycles = 11; // 12 - 1 = 11
+        } else {
+          // Custom
+          const autoCycles = getDefaultMonthlyEmiCycles(target);
+          target.totalCycles = autoCycles;
+        }
+      }
+
       // Auto update planType & recommended cycles if durationDays changes
       if (field === "durationDays") {
         if (value === "" || value === null || value === undefined) {
@@ -228,7 +254,8 @@ export default function usePlanForm({ planId, cloneFromId, isEditMode, currentUs
         } else {
           const days = Math.max(Number(value) || 0, 1);
           target.durationDays = days;
-          const autoCycles = getDefaultMonthlyEmiCycles(target);
+          const months = Math.max(Math.round(days / 30), 1);
+          const autoCycles = Math.max(months - 1, 0);
           target.totalCycles = autoCycles;
 
           const isZeroOrDays =
@@ -255,9 +282,27 @@ export default function usePlanForm({ planId, cloneFromId, isEditMode, currentUs
         }
       }
 
-      if (field === "duration" || field === "planType") {
-        const autoCycles = getDefaultMonthlyEmiCycles(target);
-        if (!target.totalCycles) {
+      // Auto update totalCycles and durationDays if duration label changes
+      if (field === "duration") {
+        const mMatch = String(value).match(/(\d+)\s*(?:month|m\b)/i);
+        const isYear = /1\s*year/i.test(String(value));
+        if (mMatch && Number(mMatch[1]) > 0) {
+          const m = Number(mMatch[1]);
+          target.totalCycles = Math.max(m - 1, 0);
+          if (
+            !target.durationDays ||
+            target.durationDays === 30 ||
+            target.durationDays === 92 ||
+            target.durationDays === 184 ||
+            target.durationDays === 365
+          ) {
+            target.durationDays = m * 30;
+          }
+        } else if (isYear) {
+          target.totalCycles = 11;
+          target.durationDays = 365;
+        } else {
+          const autoCycles = getDefaultMonthlyEmiCycles(target);
           target.totalCycles = autoCycles;
         }
       }

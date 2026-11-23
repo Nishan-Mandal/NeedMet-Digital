@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   CreditCard,
@@ -9,11 +9,11 @@ import {
   AlertCircle,
   RotateCcw,
   Clock,
-  Building2,
   Hourglass,
   CheckCircle2,
   Copy,
   Check,
+  Phone,
 } from "lucide-react";
 
 export default function TransactionDetailModal({ payment, onClose }) {
@@ -150,10 +150,6 @@ export default function TransactionDetailModal({ payment, onClose }) {
 
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-slate-600 text-xs">
             <div className="flex items-center gap-1.5">
-              <span className="text-slate-400">Gateway:</span>
-              <span className="font-bold text-slate-800">{payment.gateway || "RAZORPAY"}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
               <span className="text-slate-400">Type:</span>
               <span className="font-semibold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
                 {paymentTypeLabels[payment.paymentType] || payment.paymentType}
@@ -177,7 +173,7 @@ export default function TransactionDetailModal({ payment, onClose }) {
             <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100">
               <span className="text-slate-400 block text-xs font-medium">Customer</span>
               <span className="font-bold text-slate-900 text-sm mt-0.5 block">
-                {payment.userName || "Customer"}
+                {payment.user?.userName || payment.userName || "Customer"}
               </span>
             </div>
 
@@ -185,12 +181,12 @@ export default function TransactionDetailModal({ payment, onClose }) {
               <span className="text-slate-400 block text-xs font-medium">User ID</span>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="font-mono font-semibold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200 text-xs break-all">
-                  {payment.userId || "N/A"}
+                  {payment.user?.userId || payment.userId || "N/A"}
                 </span>
-                {payment.userId && (
+                {(payment.user?.userId || payment.userId) && (
                   <button
                     type="button"
-                    onClick={() => handleCopy(payment.userId, "userId")}
+                    onClick={() => handleCopy(payment.user?.userId || payment.userId, "userId")}
                     className="p-1 text-slate-500 hover:text-[#0f5c3e] hover:bg-emerald-50 rounded transition cursor-pointer"
                     title="Copy User ID"
                   >
@@ -205,12 +201,51 @@ export default function TransactionDetailModal({ payment, onClose }) {
             </div>
 
             <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100">
+              <span className="text-slate-400 block text-xs font-medium">Customer Phone</span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {(payment.user?.phone || payment.phone || payment.userPhone || payment.customerPhone) ? (
+                  <>
+                    <a
+                      href={`tel:${payment.user?.phone || payment.phone || payment.userPhone || payment.customerPhone}`}
+                      className="font-semibold text-slate-800 hover:text-[#0f5c3e] hover:underline text-xs inline-flex items-center gap-1"
+                      title="Click to call customer"
+                    >
+                      <Phone size={11} className="text-[#0f5c3e] shrink-0" />
+                      <span>{payment.user?.phone || payment.phone || payment.userPhone || payment.customerPhone}</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(payment.user?.phone || payment.phone || payment.userPhone || payment.customerPhone, "phone")}
+                      className="p-1 text-slate-500 hover:text-[#0f5c3e] hover:bg-emerald-50 rounded transition cursor-pointer"
+                      title="Copy Phone Number"
+                    >
+                      {copiedKey === "phone" ? (
+                        <Check size={13} className="text-emerald-600" />
+                      ) : (
+                        <Copy size={13} />
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-slate-400 text-xs italic">N/A</span>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100">
+              <span className="text-slate-400 block text-xs font-medium">Sold By (Salesman)</span>
+              <span className="font-bold text-[#0f5c3e] text-sm mt-0.5 block">
+                {payment.SaleBy || payment.saleBy || payment.itemSnapshot?.SaleBy || "Direct / Online"}
+              </span>
+            </div>
+
+            <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100">
               <span className="text-slate-400 block text-xs font-medium">Linked Purchase ID</span>
               <div className="mt-0.5">
                 {payment.orderId ? (
                   <div className="flex items-center gap-1.5">
                     <Link
-                      to={`/admin/purchases?search=${encodeURIComponent(payment.orderId)}`}
+                      to={`/admin/transactions?tab=purchases&search=${encodeURIComponent(payment.orderId)}`}
                       className="inline-flex items-center gap-1 font-mono text-xs text-[#0f5c3e] hover:text-[#1a8a5a] hover:underline font-semibold bg-white px-2 py-0.5 rounded border border-emerald-200 transition break-all"
                       title="View linked purchase in purchases ledger"
                     >
@@ -246,36 +281,7 @@ export default function TransactionDetailModal({ payment, onClose }) {
           </div>
         </div>
 
-        {/* 3. Payment Method Details */}
-        <div className="p-4 rounded-xl bg-white border border-slate-200/80 space-y-3">
-          <div className="text-xs font-bold uppercase tracking-wider text-[#0f5c3e] flex items-center gap-1.5">
-            <Building2 size={13} />
-            <span>2. Payment Method Details</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs sm:text-sm">
-            <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100">
-              <span className="text-slate-400 block text-xs font-medium">Mode</span>
-              <span className="px-2 py-0.5 rounded bg-white border border-slate-200/80 font-mono font-bold text-slate-800 uppercase text-xs inline-block mt-0.5">
-                {payment.method || "upi"}
-              </span>
-            </div>
-
-            <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100">
-              <span className="text-slate-400 block text-xs font-medium">Bank</span>
-              <span className="font-semibold text-slate-800 block mt-0.5">{payment.bank || "N/A"}</span>
-            </div>
-
-            <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100">
-              <span className="text-slate-400 block text-xs font-medium">Card Last 4</span>
-              <span className="font-mono text-slate-700 block mt-0.5">
-                {payment.cardLast4 ? `•••• ${payment.cardLast4}` : "N/A"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* 4. Failure Context (If status === "FAILED" or error present) */}
+        {/* 3. Failure Context (If status === "FAILED" or error present) */}
         {(payment.status === "FAILED" || payment.error) && (
           <div className="p-4 rounded-xl bg-rose-50/80 border border-rose-200 text-xs space-y-1.5">
             <div className="text-xs font-bold uppercase tracking-wider text-rose-800 flex items-center gap-1">

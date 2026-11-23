@@ -13,7 +13,12 @@ import {
   IndianRupee,
   CheckCircle,
   Clock,
+  CalendarDays,
+  User,
+  UserCheck,
+  Download,
 } from "lucide-react";
+import { exportSalesReportCsv } from "../../reports/services/reportExport.service";
 
 export default function Purchases() {
   const [page, setPage] = useState(1);
@@ -25,6 +30,16 @@ export default function Purchases() {
 
   // Inspect Modal State
   const [detailOrder, setDetailOrder] = useState(null);
+  const [sortField, setSortField] = useState("createdAt");
+  const [sortDir, setSortDir] = useState("desc");
+
+  // Sort options — Salesman prioritized
+  const sortOptions = [
+    { value: "saleBy", label: "Salesman", icon: UserCheck },
+    { value: "createdAt", label: "Purchase Date", icon: CalendarDays },
+    { value: "amount", label: "Amount", icon: IndianRupee },
+    { value: "customerName", label: "Customer", icon: User },
+  ];
 
   // Debounce search
   useEffect(() => {
@@ -48,6 +63,32 @@ export default function Purchases() {
   });
 
   const orders = queryResult?.purchases || queryResult?.orders || [];
+
+  // Client-side sorting for responsive instant feedback
+  const sortedOrders = [...orders].sort((a, b) => {
+    if (sortField === "saleBy") {
+      const sA = (a.SaleBy || a.saleBy || a.itemSnapshot?.SaleBy || "").toLowerCase();
+      const sB = (b.SaleBy || b.saleBy || b.itemSnapshot?.SaleBy || "").toLowerCase();
+      return sortDir === "asc" ? sA.localeCompare(sB) : sB.localeCompare(sA);
+    }
+    if (sortField === "amount") {
+      const pA = Number(a.pricing?.finalPrice || 0);
+      const pB = Number(b.pricing?.finalPrice || 0);
+      return sortDir === "asc" ? pA - pB : pB - pA;
+    }
+    if (sortField === "customerName") {
+      const nA = (a.user?.userName || a.userName || "").toLowerCase();
+      const nB = (b.user?.userName || b.userName || "").toLowerCase();
+      return sortDir === "asc" ? nA.localeCompare(nB) : nB.localeCompare(nA);
+    }
+    if (sortField === "createdAt") {
+      const dA = new Date(a.createdAt || 0).getTime();
+      const dB = new Date(b.createdAt || 0).getTime();
+      return sortDir === "asc" ? dA - dB : dB - dA;
+    }
+    return 0;
+  });
+
   const metrics = queryResult?.metrics || {
     totalCount: 0,
     totalRevenue: 0,
@@ -107,9 +148,9 @@ export default function Purchases() {
   ];
 
   return (
-    <div className="space-y-6 w-full font-primary">
+    <div className="space-y-3.5 sm:space-y-6 w-full font-primary">
       {/* ── KPI Summary Stats (Derived Quantities) ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3.5">
         {kpiCards.map((kpi) => (
           <KpiCard
             key={kpi.id}
@@ -131,11 +172,25 @@ export default function Purchases() {
           setStatusFilter(st);
           setPage(1);
         }}
+        sortOptions={sortOptions}
+        activeSort={sortField}
+        sortDir={sortDir}
+        onSortChange={(field, dir) => {
+          setSortField(field);
+          setSortDir(dir);
+          setPage(1);
+        }}
         searchPlaceholder="Search Purchase ID, user ID, customer, service, plan, coupon, payment ID..."
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
         onRefresh={refetch}
         refreshing={loading}
+        actionLabel="Download CSV"
+        actionIcon={Download}
+        onActionClick={() => {
+          const timestamp = new Date().toISOString().slice(0, 10);
+          exportSalesReportCsv(sortedOrders, `purchases-ledger-${timestamp}.csv`);
+        }}
       />
 
       {/* Alerts */}
@@ -174,7 +229,7 @@ export default function Purchases() {
       {/* Purchases Table Section */}
       <OrdersTableSection
         loading={loading}
-        orders={orders}
+        orders={sortedOrders}
         searchQuery={debouncedSearch}
         onInspect={(order) => setDetailOrder(order)}
       />
