@@ -20,7 +20,7 @@ import {
   formatCouponDate,
   getCouponDaysRemaining,
   canDeleteCoupon,
-} from "../../../utils/coupon.utils";
+} from "../utils/coupon.utils";
 import PaginationControl from "../../../components/PaginationControl";
 
 export default function CouponTableSection({

@@ -19,9 +19,12 @@ export function useServiceActions({
   setShowAuthModal,
   setCashContext,
   setShowCashModal,
+  setShowLocationModal,
+  setLocationErrorMessage,
   service,
   currentPlan,
   pricing,
+  saleBy,
 }) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -41,16 +44,22 @@ export function useServiceActions({
       return;
     }
 
+    const trimmedSaleBy = saleBy?.trim() || null;
+
     await handleCheckoutFlow({
       serviceId,
       planId: selectedPlanId,
       paymentMethod,
       couponCode: couponData?.couponCode,
+      SaleBy: trimmedSaleBy,
       serviceDetails: {
         serviceName: service?.title || service?.name || "NeedMet Digital",
         category: service?.category || "Digital Marketing",
         imageUrl: service?.imageUrl || [],
         planName: currentPlan?.name || "Standard Plan",
+        duration: currentPlan?.duration || `${currentPlan?.durationDays || 92} Days`,
+        durationDays: currentPlan?.durationDays || 92,
+        features: currentPlan?.features || [],
         basePrice: pricing?.baseprice || pricing?.total,
         finalPrice: pricing?.grand,
         upfrontAmount: pricing?.upfrontAmount,
@@ -59,6 +68,7 @@ export function useServiceActions({
         upfrontValue: pricing?.upfrontValue || 15,
         totalCycles: pricing?.totalCycles,
         emiAmount: pricing?.emiAmount,
+        SaleBy: trimmedSaleBy,
       },
       onSuccess: (_paymentId, metadata = {}) => {
         navigate(`/checkout/success?${buildSuccessQueryParams(metadata)}`);
@@ -71,6 +81,14 @@ export function useServiceActions({
       onCashPayment: (context) => {
         setCashContext(context);
         setShowCashModal(true);
+      },
+      onLocationRequired: (geoErr) => {
+        if (setLocationErrorMessage) {
+          setLocationErrorMessage(geoErr.message);
+        }
+        if (setShowLocationModal) {
+          setShowLocationModal(true);
+        }
       },
     });
   };

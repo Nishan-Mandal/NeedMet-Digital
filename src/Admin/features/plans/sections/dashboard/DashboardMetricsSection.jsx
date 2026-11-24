@@ -1,4 +1,7 @@
-export default function DashboardMetricsSection({ metrics }) {
+import KpiCard from "../../../../components/KpiCard";
+import { Layers, CalendarRange, CheckCircle2, FileEdit } from "lucide-react";
+
+export default function DashboardMetricsSection({ metrics, loading = false }) {
   const {
     totalServices = 0,
     totalPlans = 0,
@@ -7,34 +10,42 @@ export default function DashboardMetricsSection({ metrics }) {
   } = metrics || {};
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      <div className="rounded-2xl sm:rounded-xl border border-slate-200/60 bg-white p-3.5 shadow-xs hover:shadow-sm transition-shadow duration-200">
-        <p className="text-xs sm:text-[11px] font-bold uppercase tracking-wider text-slate-600">
-          Total Services
-        </p>
-        <p className="mt-1 text-2xl sm:text-xl font-bold font-heading text-slate-900">{totalServices}</p>
-      </div>
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <KpiCard
+        title="Total Services"
+        value={totalServices}
+        icon={Layers}
+        variant="slate"
+        subtitle="Catalog services"
+        loading={loading}
+      />
 
-      <div className="rounded-2xl sm:rounded-xl border border-purple-200/60 bg-purple-50/50 p-3.5 shadow-xs hover:shadow-sm transition-shadow duration-200">
-        <p className="text-xs sm:text-[11px] font-bold uppercase tracking-wider text-purple-800">
-          Duration Plans
-        </p>
-        <p className="mt-1 text-2xl sm:text-xl font-bold font-heading text-purple-800">{totalPlans}</p>
-      </div>
+      <KpiCard
+        title="Duration Plans"
+        value={totalPlans}
+        icon={CalendarRange}
+        variant="purple"
+        subtitle="Tier configurations"
+        loading={loading}
+      />
 
-      <div className="rounded-2xl sm:rounded-xl border border-emerald-200/60 bg-emerald-50/50 p-3.5 shadow-xs hover:shadow-sm transition-shadow duration-200">
-        <p className="text-xs sm:text-[11px] font-bold uppercase tracking-wider text-emerald-800">
-          Storefront Published
-        </p>
-        <p className="mt-1 text-2xl sm:text-xl font-bold font-heading text-emerald-800">{published}</p>
-      </div>
+      <KpiCard
+        title="Storefront Published"
+        value={published}
+        icon={CheckCircle2}
+        variant="emerald"
+        subtitle="Live on website"
+        loading={loading}
+      />
 
-      <div className="rounded-2xl sm:rounded-xl border border-amber-200/60 bg-amber-50/50 p-3.5 shadow-xs hover:shadow-sm transition-shadow duration-200">
-        <p className="text-xs sm:text-[11px] font-bold uppercase tracking-wider text-amber-800">
-          Draft / Inactive
-        </p>
-        <p className="mt-1 text-2xl sm:text-xl font-bold font-heading text-amber-800">{draft}</p>
-      </div>
+      <KpiCard
+        title="Draft / Inactive"
+        value={draft}
+        icon={FileEdit}
+        variant="amber"
+        subtitle="Pending review or hidden"
+        loading={loading}
+      />
     </div>
   );
 }

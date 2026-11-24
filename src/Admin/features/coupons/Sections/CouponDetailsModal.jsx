@@ -5,7 +5,7 @@ import {
   formatCouponDiscount,
   formatCouponDate,
   getCouponDaysRemaining,
-} from "../../../utils/coupon.utils";
+} from "../utils/coupon.utils";
 
 export default function CouponDetailsModal({
   coupon,

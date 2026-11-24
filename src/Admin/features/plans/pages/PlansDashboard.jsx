@@ -92,6 +92,9 @@ export default function AdminPlansDashboard() {
 
   return (
     <div className="space-y-6 w-full font-primary">
+      {/* ── KPI Summary Stats (Reusable KpiCard components) ── */}
+      <DashboardMetricsSection metrics={metrics} loading={loading} />
+
       {/* Unified Action & Filter Toolbar */}
       <ActionHeader
         filters={filterTabs}
@@ -116,9 +119,6 @@ export default function AdminPlansDashboard() {
           <option value="FULL">Full Only</option>
         </select>
       </ActionHeader>
-
-      {/* Metric Cards */}
-      <DashboardMetricsSection metrics={metrics} />
 
       {/* Feedback Alert */}
       {feedback && (

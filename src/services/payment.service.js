@@ -1,12 +1,19 @@
-import { verifyPaymentCallable, verifyCashPaymentCallable, verifyMandateCallable } from "./cloudFunctions";
+import { verifyPaymentCallable, verifyCashPaymentCallable } from "./cloudFunctions";
 
-export const verifyPaymentService = async (razorpay_order_id, razorpay_payment_id, razorpay_signature) => {
+export const verifyPaymentService = async (
+  razorpay_order_id,
+  razorpay_payment_id,
+  razorpay_signature,
+  extraData = {}
+) => {
   try {
-    const response = await verifyPaymentCallable({
+    const payload = {
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
-    });
+      ...extraData,
+    };
+    const response = await verifyPaymentCallable(payload);
     return response.data;
   } catch (error) {
     console.error("Error verifying payment:", error);
@@ -30,9 +37,14 @@ export const verifyMandateService = async ({ purchaseId, subscriptionId, payment
   }
 };
 
-export const verifyCashPaymentService = async (serviceId, planId, couponCode, code) => {
+export const verifyCashPaymentService = async (serviceId, planId, couponCode, code, SaleBy) => {
   try {
-    const response = await verifyCashPaymentCallable({ serviceId, planId, couponCode: couponCode || null, code });
+    const payload = { serviceId, planId, couponCode: couponCode || null, code };
+    if (SaleBy) {
+      payload.SaleBy = SaleBy;
+      payload.saleBy = SaleBy;
+    }
+    const response = await verifyCashPaymentCallable(payload);
     return response.data;
   } catch (error) {
     console.error("Error verifying cash payment:", error);

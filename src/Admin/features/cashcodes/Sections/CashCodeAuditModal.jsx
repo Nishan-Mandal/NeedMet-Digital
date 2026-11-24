@@ -3,7 +3,7 @@ import {
   getCashCodeStatus,
   getCashCodeStatusLabel,
   formatCashCodeDate,
-} from "../../../utils/cashCode.utils";
+} from "../utils/cashCode.utils";
 
 export default function CashCodeAuditModal({
   codeItem,

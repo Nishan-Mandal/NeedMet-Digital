@@ -19,7 +19,7 @@ import {
   formatCashCodeDate,
   getDaysRemaining,
   getCashCodeAmount,
-} from "../../../utils/cashCode.utils";
+} from "../utils/cashCode.utils";
 import PaginationControl from "../../../components/PaginationControl";
 
 export default function CashCodeTableSection({

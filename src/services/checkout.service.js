@@ -4,9 +4,17 @@ import {
   verifyPaymentCallable,
 } from "./cloudFunctions";
 
-export const createOrderService = async (serviceId, planId, paymentMethod, couponCode) => {
+export const createOrderService = async (serviceId, planId, paymentMethod, couponCode, SaleBy, location = null) => {
   try {
-    const response = await createOrderCallable({ serviceId, planId, paymentMethod, couponCode });
+    const payload = { serviceId, planId, paymentMethod, couponCode };
+    if (SaleBy) {
+      payload.SaleBy = SaleBy;
+      payload.saleBy = SaleBy;
+    }
+    if (location) {
+      payload.location = location;
+    }
+    const response = await createOrderCallable(payload);
     return response.data;
   } catch (error) {
     console.error("Error creating order:", error);

@@ -2,13 +2,21 @@ import {
   NotepadText,
   TicketCheck,
   Banknote,
+  CreditCard,
+  TrendingUp,
 } from "lucide-react";
 
 /**
- * Hierarchical tree navigation configuration for NeedMate Digital Admin Panel
- * Limited strictly to Plans, Coupons, and Cash Codes
+ * Flat & tree navigation configuration for NeedMate Digital Admin Panel
  */
 export const navTree = [
+  {
+    type: "link",
+    to: "/admin/reports",
+    label: "Sales & Reports",
+    icon: TrendingUp,
+    description: "Revenue, plan analytics & EMI performance",
+  },
   {
     type: "link",
     to: "/admin/plans",
@@ -29,5 +37,12 @@ export const navTree = [
     label: "Cash Codes",
     icon: Banknote,
     description: "Redemption & audits",
+  },
+  {
+    type: "link",
+    to: "/admin/transactions",
+    label: "Transactions",
+    icon: CreditCard,
+    description: "Purchases, gateway payments & upcoming EMIs",
   },
 ];

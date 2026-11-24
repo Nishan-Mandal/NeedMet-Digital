@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Coins, X, Calendar, Hash } from "lucide-react";
-import { getDaysRemaining } from "../../../utils/cashCode.utils";
+import { getDaysRemaining } from "../utils/cashCode.utils";
 
 export default function CashCodeEditModal({
   isOpen = false,

@@ -11,6 +11,12 @@
 export function getCheckoutStepFeedback(step, paymentMethod) {
   if (paymentMethod === "EMI") {
     switch (step) {
+      case "capturing_location":
+        return {
+          step: "Verification",
+          title: "Requesting Device Location",
+          desc: "Location access is mandatory for EMI upfront payment compliance. Please allow permission...",
+        };
       case "initiating":
         return {
           step: "Step 1 of 2",

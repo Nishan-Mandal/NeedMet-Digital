@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import ActionHeader from "../../../components/ActionHeader";
+import KpiCard from "../../../components/KpiCard";
 import CouponTableSection from "../Sections/CouponTableSection";
 import CouponFormModal from "../Sections/CouponFormModal";
 import CouponDetailsModal from "../Sections/CouponDetailsModal";
@@ -8,8 +9,16 @@ import {
   useCouponsQuery,
   useCouponCountsQuery,
   useCouponMutations,
-} from "../../../hooks/queries/useCouponsQuery";
-import { CheckCircle2, AlertCircle, X } from "lucide-react";
+} from "../hooks/useCouponsQuery";
+import {
+  CheckCircle2,
+  AlertCircle,
+  X,
+  TicketCheck,
+  CheckCircle,
+  Clock,
+  Tag,
+} from "lucide-react";
 
 export default function Coupons() {
   // Query & Pagination states
@@ -63,7 +72,7 @@ export default function Coupons() {
     cursor: currentCursor,
   });
 
-  const { data: countsData } = useCouponCountsQuery();
+  const { data: countsData, isLoading: countsLoading } = useCouponCountsQuery();
   const { createMutation, updateMutation, deleteMutation, toggleStatusMutation } =
     useCouponMutations();
 
@@ -237,8 +246,68 @@ export default function Coupons() {
     deleteMutation.isPending ||
     toggleStatusMutation.isPending;
 
+  const totalCouponsCount = countsData?.total ?? coupons.length;
+  const activeCouponsCount = countsData?.active ?? coupons.filter((c) => c.status === "active").length;
+  const inactiveCouponsCount = countsData?.inactive ?? coupons.filter((c) => c.status === "inactive").length;
+  const expiredCouponsCount = coupons.filter(
+    (c) =>
+      c.status === "expired" ||
+      (c.expiresAt && new Date(c.expiresAt) < new Date()) ||
+      (c.usageLimit && (c.usedCount || 0) >= c.usageLimit)
+  ).length;
+
+  const kpiCards = [
+    {
+      id: "total-coupons",
+      title: "Total Coupons",
+      value: totalCouponsCount,
+      icon: TicketCheck,
+      variant: "slate",
+      subtitle: "All promotional codes",
+    },
+    {
+      id: "active-coupons",
+      title: "Active Coupons",
+      value: activeCouponsCount,
+      icon: CheckCircle,
+      variant: "emerald",
+      subtitle: "Currently redeemable",
+    },
+    {
+      id: "inactive-coupons",
+      title: "Inactive Coupons",
+      value: inactiveCouponsCount,
+      icon: Clock,
+      variant: "amber",
+      subtitle: "Paused or draft codes",
+    },
+    {
+      id: "expired-exhausted",
+      title: "Expired / Limit Met",
+      value: expiredCouponsCount,
+      icon: Tag,
+      variant: "rose",
+      subtitle: "Exhausted redemptions",
+    },
+  ];
+
   return (
     <div className="space-y-6 w-full font-primary">
+      {/* ── KPI Summary Stats (Reusable KpiCard components) ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {kpiCards.map((kpi) => (
+          <KpiCard
+            key={kpi.id}
+            title={kpi.title}
+            value={kpi.value}
+            icon={kpi.icon}
+            variant={kpi.variant}
+            loading={countsLoading || isQueryLoading}
+            subtitle={kpi.subtitle}
+          />
+        ))}
+      </div>
+
       {/* Unified Action & Filter Toolbar */}
       <ActionHeader
         filters={filterTabs}

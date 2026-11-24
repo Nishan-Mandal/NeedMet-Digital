@@ -1,5 +1,5 @@
 import { Trash2, AlertTriangle, AlertCircle, X } from "lucide-react";
-import { canDeleteCoupon, formatCouponDiscount } from "../../../utils/coupon.utils";
+import { canDeleteCoupon, formatCouponDiscount } from "../utils/coupon.utils";
 
 export default function CouponDeleteModal({
   isOpen = false,

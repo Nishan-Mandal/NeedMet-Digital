@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Outlet, useLocation } from "react-router-dom";
 import AdminSidebar from "./Sections/AdminSidebar";
 import AdminNavbar from "./Sections/AdminNavbar";
 import AdminDrawer from "./Sections/AdminDrawer";
@@ -13,7 +13,8 @@ import AdminBottomNav from "./Sections/AdminBottomNav";
 export default function AdminLayout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [openGroups, setOpenGroups] = useState({ offers: true });
+  const location = useLocation();
+  const [openGroups, setOpenGroups] = useState({});
 
   const toggleGroup = (groupId) => {
     setOpenGroups((prev) => ({

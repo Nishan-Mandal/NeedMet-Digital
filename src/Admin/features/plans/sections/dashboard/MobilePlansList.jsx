@@ -122,25 +122,27 @@ export default function MobilePlansList({
               </div>
             </div>
 
-            {/* MIDDLE: DURATION PLANS AREA (Phone-Optimized) */}
-            <div className="rounded-2xl border border-slate-200/60 bg-slate-50/80 p-3 space-y-2.5 shadow-2xs">
-              {/* Header Bar with Toggle */}
-              <div className="flex items-center justify-between">
+            {/* MIDDLE: DURATION PLANS AREA (Phone-Optimized - Full Space, Unenclosed) */}
+            <div className="space-y-2.5">
+              {/* Header Bar with Toggle (Split into 2 rows on mobile to prevent cramming) */}
+              <div className="space-y-2">
+                {/* Row 1: Title & Count Badge */}
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
                   <span className="material-symbols-outlined text-base text-[#0f5c3e]">
                     calendar_month
                   </span>
-                  <span>Duration Options</span>
-                  <span className="rounded-full bg-white border border-slate-200/60 px-2 py-0.5 text-xs font-bold text-slate-700 shadow-2xs">
+                  <span className="whitespace-nowrap">Duration Options</span>
+                  <span className="rounded-full bg-slate-100 border border-slate-200/80 px-2 py-0.5 text-xs font-bold text-slate-700 shadow-2xs">
                     {subPlans.length}
                   </span>
                 </div>
 
+                {/* Row 2: View Tiers Toggle Button */}
                 {subPlans.length > 0 && (
                   <button
                     type="button"
                     onClick={() => onToggleExpand(plan.id)}
-                    className="min-h-[38px] inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold text-[#0f5c3e] bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200/60 transition cursor-pointer shadow-2xs"
+                    className="w-full min-h-[36px] inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-[#0f5c3e] bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200/60 transition cursor-pointer shadow-2xs"
                   >
                     <span>{isExpanded ? "Hide Tiers" : "View Tiers"}</span>
                     <span className="material-symbols-outlined text-base">
@@ -150,21 +152,23 @@ export default function MobilePlansList({
                 )}
               </div>
 
-              {/* Collapsed View: Duration + Price Chips */}
+              {/* Collapsed View: Duration + Price Chips (Grid of 2 Columns) */}
               {subPlans.length > 0 ? (
-                <div className="flex flex-wrap gap-2 pt-0.5">
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
                   {subPlans.map((sub, sIdx) => {
                     const finalP = sub.finalPrice || sub.price || 0;
                     return (
                       <div
                         key={sub.id || sIdx}
-                        className="min-h-[36px] inline-flex items-center gap-2 rounded-xl border border-slate-200/60 bg-white px-3 py-1.5 text-xs shadow-2xs"
+                        className={`min-h-[36px] flex items-center justify-center gap-1.5 rounded-xl border border-slate-200/80 bg-slate-50/70 px-2.5 py-1.5 text-xs shadow-2xs ${
+                          subPlans.length === 1 ? "col-span-2" : ""
+                        }`}
                       >
-                        <span className="font-bold text-slate-800">
+                        <span className="font-bold text-slate-800 truncate">
                           {formatPlanDuration(sub)}
                         </span>
-                        <span className="h-3 w-[1px] bg-slate-200" />
-                        <span className="font-bold text-[#0f5c3e]">
+                        <span className="h-3 w-[1px] bg-slate-200 shrink-0" />
+                        <span className="font-bold text-[#0f5c3e] shrink-0">
                           ₹{finalP.toLocaleString("en-IN")}
                         </span>
                       </div>
@@ -191,7 +195,7 @@ export default function MobilePlansList({
                     return (
                       <div
                         key={sub.id || sIdx}
-                        className="rounded-xl border border-slate-200/60 bg-white p-3 space-y-2 shadow-2xs"
+                        className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-3 space-y-2 shadow-2xs"
                       >
                         {/* Tier Header: Name + Badge + Price */}
                         <div className="flex items-center justify-between gap-2">

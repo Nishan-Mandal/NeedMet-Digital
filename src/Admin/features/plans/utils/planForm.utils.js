@@ -22,14 +22,15 @@ export function getDurationInMonths(planOrDays) {
   if (typeof planOrDays === "number") {
     return Math.max(Math.round(planOrDays / 30), 1);
   }
-  const text = `${planOrDays.duration || ""} ${planOrDays.planType || ""} ${planOrDays.name || ""}`;
-  const mMatch = text.match(/(\d+)\s*(?:month|m\b)/i);
-  if (mMatch && Number(mMatch[1]) > 0) return Number(mMatch[1]);
-  if (/1\s*year/i.test(text) || /(?:^|\b|-|_|\s)12\s*m/i.test(text)) return 12;
+  // Check durationDays first if available as primary source of truth
   const days = Number(planOrDays.durationDays);
   if (days && days > 0) {
     return Math.max(Math.round(days / 30), 1);
   }
+  const text = `${planOrDays.duration || ""} ${planOrDays.planType || ""}`;
+  const mMatch = text.match(/(\d+)\s*(?:month|m\b)/i);
+  if (mMatch && Number(mMatch[1]) > 0) return Number(mMatch[1]);
+  if (/1\s*year/i.test(text) || /(?:^|\b|-|_|\s)12\s*m/i.test(text)) return 12;
   return 1;
 }
 
@@ -39,7 +40,7 @@ export function getDurationInMonths(planOrDays) {
  */
 export function getDefaultMonthlyEmiCycles(planOrDays) {
   const months = getDurationInMonths(planOrDays);
-  return Math.max(months - 1, 1);
+  return Math.max(months - 1, 0);
 }
 
 /**
@@ -54,7 +55,7 @@ export const DURATION_PRESETS = [
     durationDays: 30,
     planType: "1 Month",
     tag: "Recommended",
-    defaultCycles: 1,
+    defaultCycles: 0, // 1 Month - 1 = 0 recurring cycles
     defaultPrice: 5499,
   },
   {
@@ -115,7 +116,12 @@ export function createPlan(config = {}) {
     paymentOptions: config.paymentOptions || "BOTH", // "FULL", "EMI", "BOTH"
     upfrontType: config.upfrontType || config.emiConfig?.upfrontType || "percentage", // "percentage" | "fixed"
     upfrontValue: Number(config.upfrontValue ?? config.emiConfig?.upfrontValue ?? 15),
-    totalCycles: Number(config.totalCycles ?? config.emiConfig?.totalCycles ?? autoCycles),
+    totalCycles:
+      config.totalCycles !== undefined && config.totalCycles !== null && config.totalCycles !== ""
+        ? Number(config.totalCycles)
+        : (config.emiConfig?.totalCycles !== undefined && config.emiConfig?.totalCycles !== null && config.emiConfig?.totalCycles !== ""
+            ? Number(config.emiConfig.totalCycles)
+            : autoCycles),
     billingDay: Number(config.billingDay ?? config.emiConfig?.billingDay ?? 9),
     firstDebitDays: Number(config.firstDebitDays ?? config.emiConfig?.firstDebitDays ?? 30),
     features: Array.isArray(config.features)
@@ -244,8 +250,11 @@ export function calculateVariantPricing(variant = {}) {
     0
   );
   const defaultCycles = getDefaultMonthlyEmiCycles(variant);
-  const cycles = Math.max(Number(variant.totalCycles) || defaultCycles, 1);
-  const emiAmount = Math.round((remainingAmount / cycles) * 100) / 100;
+  const cycles =
+    variant.totalCycles !== undefined && variant.totalCycles !== null && variant.totalCycles !== ""
+      ? Math.max(Number(variant.totalCycles), 0)
+      : defaultCycles;
+  const emiAmount = cycles > 0 ? Math.round((remainingAmount / cycles) * 100) / 100 : 0;
   const discountPercent =
     rawPrice > 0 ? Math.round((discount / rawPrice) * 100) : 0;
 
@@ -254,6 +263,7 @@ export function calculateVariantPricing(variant = {}) {
     upfrontAmount,
     remainingAmount,
     cycles,
+    totalCycles: cycles,
     emiAmount,
     discountPercent,
   };
@@ -308,9 +318,9 @@ export function normalizeExistingPlan(existingRecord) {
     const duration = formatPlanDuration(p);
     const name = formatPlanTitle(p) || `${duration} Plan`;
     const months = getDurationInMonths({ ...p, duration, durationDays });
-    const defaultCycles = Math.max(months - 1, 1);
+    const defaultCycles = Math.max(months - 1, 0);
 
-    // If totalCycles is missing, 0, or equals the legacy unadjusted duration in months (e.g. 3 for 3M),
+    // If totalCycles is missing, or equals the legacy unadjusted duration in months (e.g. 3 for 3M),
     // default to duration in months - 1 as followed across the website
     const rawCycles =
       p.totalCycles !== undefined && p.totalCycles !== null && p.totalCycles !== ""
@@ -320,7 +330,7 @@ export function normalizeExistingPlan(existingRecord) {
             : null);
 
     const safeTotalCycles =
-      rawCycles === null || rawCycles === 0 || rawCycles === months
+      rawCycles === null || (months > 1 && rawCycles === months)
         ? defaultCycles
         : rawCycles;
 
@@ -444,6 +454,20 @@ export function clonePlanForForm(sourceRecord) {
     const duration = formatPlanDuration(p);
     const name = formatPlanTitle(p) || `${duration} Plan`;
     const newUniquePlanId = `plan-${Date.now()}-${idx + 1}-${Math.random().toString(36).substring(2, 6)}`;
+    const months = getDurationInMonths({ ...p, duration, durationDays });
+    const defaultCycles = Math.max(months - 1, 0);
+
+    const rawCycles =
+      p.totalCycles !== undefined && p.totalCycles !== null && p.totalCycles !== ""
+        ? Number(p.totalCycles)
+        : (p.emiConfig?.totalCycles !== undefined && p.emiConfig?.totalCycles !== null && p.emiConfig?.totalCycles !== ""
+            ? Number(p.emiConfig.totalCycles)
+            : null);
+
+    const safeTotalCycles =
+      rawCycles === null || (months > 1 && rawCycles === months)
+        ? defaultCycles
+        : rawCycles;
 
     return createPlan({
       id: newUniquePlanId,
@@ -459,7 +483,7 @@ export function clonePlanForForm(sourceRecord) {
       paymentOptions: p.paymentOptions || "BOTH",
       upfrontType: p.upfrontType || p.emiConfig?.upfrontType || "percentage",
       upfrontValue: p.upfrontValue !== undefined ? Number(p.upfrontValue) : (p.emiConfig?.upfrontValue !== undefined ? Number(p.emiConfig.upfrontValue) : 15),
-      totalCycles: p.totalCycles !== undefined ? Number(p.totalCycles) : (p.emiConfig?.totalCycles !== undefined ? Number(p.emiConfig.totalCycles) : Math.max(Math.ceil((durationDays - 5) / 30), 1)),
+      totalCycles: safeTotalCycles,
       billingDay: p.billingDay !== undefined ? Number(p.billingDay) : (Number(p.emiConfig?.billingDay) || 9),
       firstDebitDays: p.firstDebitDays !== undefined ? Number(p.firstDebitDays) : (Number(p.emiConfig?.firstDebitDays) || 30),
       features: featList,

@@ -22,6 +22,8 @@ const PlansDashboard = lazy(() => import("./Admin/features/plans/pages/PlansDash
 const PlanForm = lazy(() => import("./Admin/features/plans/pages/PlanForm"));
 const Coupons = lazy(() => import("./Admin/features/coupons/pages/Coupons"));
 const CashCodes = lazy(() => import("./Admin/features/cashcodes/pages/CashCodes"));
+const Transactions = lazy(() => import("./Admin/features/transactions/pages/Transactions"));
+const SalesReportDashboard = lazy(() => import("./Admin/features/reports/pages/SalesReportDashboard"));
 
 function App() {
   return (
@@ -48,13 +50,19 @@ function App() {
             {/* Secure Admin Portal Routes */}
             <Route element={<AdminRoute />}>
               <Route path="/admin" element={<Admin />}>
-                <Route index element={<Navigate to="/admin/plans" replace />} />
+                <Route index element={<Navigate to="/admin/reports" replace />} />
+                <Route path="reports" element={<SalesReportDashboard />} />
+                <Route path="sales-report" element={<Navigate to="/admin/reports" replace />} />
                 <Route path="plans" element={<PlansDashboard />} />
                 <Route path="plans/new" element={<PlanForm />} />
                 <Route path="plans/edit/:planId" element={<PlanForm />} />
                 <Route path="plans/clone/:clonePlanId" element={<PlanForm />} />
                 <Route path="coupons" element={<Coupons />} />
                 <Route path="cash-codes" element={<CashCodes />} />
+                <Route path="transactions" element={<Transactions />} />
+                <Route path="purchases" element={<Transactions defaultTab="purchases" />} />
+                <Route path="orders" element={<Transactions defaultTab="purchases" />} />
+                <Route path="payments" element={<Transactions defaultTab="payments" />} />
               </Route>
             </Route>
           </Routes>

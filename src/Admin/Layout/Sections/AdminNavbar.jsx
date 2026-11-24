@@ -4,6 +4,7 @@ import { PAGE_META, DEFAULT_PAGE_META } from "../../constants/pageMeta";
 import {
   SquareArrowOutUpRight,
   LogOut,
+  Menu,
 } from "lucide-react";
 
 export default function AdminNavbar({
@@ -36,17 +37,17 @@ export default function AdminNavbar({
         sidebarCollapsed ? "lg:left-20" : "lg:left-64"
       }`}
     >
-      <div className="flex items-center gap-3 min-w-0">
-        {/* Mobile Hamburger Toggle (Disabled / Not needed with Bottom Nav) */}
-        {/*
+      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        {/* Mobile Hamburger Toggle: opens the drawer displaying all options */}
         <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="lg:hidden p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer shrink-0"
-          aria-label="Toggle mobile menu"
+          type="button"
+          onClick={() => setMobileMenuOpen && setMobileMenuOpen(true)}
+          className="lg:hidden p-2 text-slate-700 hover:text-[#0f5c3e] rounded-xl hover:bg-[#e8f5ee] active:bg-[#e8f5ee] border border-slate-200/80 hover:border-[#0f5c3e]/30 transition cursor-pointer shrink-0 shadow-2xs"
+          aria-label="Open navigation menu"
+          title="All navigation options"
         >
-          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          <Menu size={20} />
         </button>
-        */}
 
         {/* Active Page Heading & Subtitle */}
         <div className="flex items-center gap-2.5 min-w-0">
@@ -66,7 +67,6 @@ export default function AdminNavbar({
 
       {/* Security status and user profile */}
       <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-        
         <a
           href="/"
           target="_blank"

@@ -11,8 +11,12 @@ export default function useCoupon() {
     setCouponError(null);
     try {
       const data = await applyCouponService(code, serviceId, planId, paymentMethod);
-      setCouponData(data);
-      return data;
+      const normalizedData = {
+        ...data,
+        couponCode: data?.couponCode || data?.code || code,
+      };
+      setCouponData(normalizedData);
+      return normalizedData;
     } catch (err) {
       setCouponError(err.message || "Failed to apply coupon");
       throw err;

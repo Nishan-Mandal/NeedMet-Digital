@@ -5,7 +5,7 @@ export default function CheckoutButton({ onClick, isLoading, isEmi, upfrontAmoun
   if (isLoading) {
     buttonLabel = "Processing...";
   } else if (isEmi && upfrontAmount) {
-    buttonLabel = `Pay ${formatCurrency(upfrontAmount)} (${upfrontDisplay ? `${upfrontDisplay} ` : ""}Down Payment)`;
+    buttonLabel = `Pay ${formatCurrency(upfrontAmount)} (Down Payment)`;
   }
 
   return (

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import useAuth from "../../../../hooks/useAuth";
 import ActionHeader from "../../../components/ActionHeader";
+import KpiCard from "../../../components/KpiCard";
 import CashCodeTableSection from "../Sections/CashCodeTableSection";
 import CashCodeCreateModal from "../Sections/CashCodeCreateModal";
 import CashCodeRevokeModal from "../Sections/CashCodeRevokeModal";
@@ -11,8 +12,16 @@ import {
   useCashCodesQuery,
   useCashCodeCountsQuery,
   useCashCodeMutations,
-} from "../../../hooks/queries/useCashCodesQuery";
-import { CheckCircle2, AlertCircle, X } from "lucide-react";
+} from "../hooks/useCashCodesQuery";
+import {
+  CheckCircle2,
+  AlertCircle,
+  X,
+  Banknote,
+  CheckCircle,
+  CheckCheck,
+  AlertTriangle,
+} from "lucide-react";
 
 export default function ManageCashCodes() {
   const { currentUser, userData } = useAuth();
@@ -70,7 +79,7 @@ export default function ManageCashCodes() {
   });
 
   // Query for server-side counts
-  const { data: countsData } = useCashCodeCountsQuery();
+  const { data: countsData, isLoading: countsLoading } = useCashCodeCountsQuery();
 
   // TanStack Mutations with automatic cache invalidation
   const { issueMutation, updateMutation, revokeMutation, deleteMutation } =
@@ -283,8 +292,63 @@ export default function ManageCashCodes() {
     revokeMutation.isPending ||
     deleteMutation.isPending;
 
+  const totalCodesCount = countsData?.total ?? cashCodes.length;
+  const activeCodesCount = countsData?.active ?? 0;
+  const redeemedCodesCount = countsData?.redeemed ?? 0;
+  const revokedCodesCount = countsData?.revoked ?? 0;
+
+  const kpiCards = [
+    {
+      id: "total-codes",
+      title: "Total Cash Codes",
+      value: totalCodesCount,
+      icon: Banknote,
+      variant: "slate",
+      subtitle: "All issued store credits",
+    },
+    {
+      id: "active-codes",
+      title: "Active Codes",
+      value: activeCodesCount,
+      icon: CheckCircle,
+      variant: "emerald",
+      subtitle: "Available for redemption",
+    },
+    {
+      id: "redeemed-codes",
+      title: "Redeemed Codes",
+      value: redeemedCodesCount,
+      icon: CheckCheck,
+      variant: "blue",
+      subtitle: "Claimed by customers",
+    },
+    {
+      id: "revoked-codes",
+      title: "Revoked / Voided",
+      value: revokedCodesCount,
+      icon: AlertTriangle,
+      variant: "rose",
+      subtitle: "Cancelled credit codes",
+    },
+  ];
+
   return (
     <div className="space-y-6 w-full font-primary">
+      {/* ── KPI Summary Stats (Reusable KpiCard components) ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {kpiCards.map((kpi) => (
+          <KpiCard
+            key={kpi.id}
+            title={kpi.title}
+            value={kpi.value}
+            icon={kpi.icon}
+            variant={kpi.variant}
+            loading={countsLoading || isQueryLoading}
+            subtitle={kpi.subtitle}
+          />
+        ))}
+      </div>
+
       {/* Unified Action & Filter Toolbar */}
       <ActionHeader
         filters={filterTabs}

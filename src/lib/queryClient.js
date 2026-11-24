@@ -89,5 +89,55 @@ export const queryKeys = {
     detail: (planId) => ["admin", "plans", "detail", planId],
     metrics: () => ["admin", "plans", "metrics"],
   },
+
+  // Admin Purchases / Orders
+  adminPurchases: {
+    all: () => ["admin", "purchases"],
+    list: ({ status = "all", search = "", page = 1, pageSize = 15 } = {}) => [
+      "admin",
+      "purchases",
+      "list",
+      {
+        status,
+        search: (search || "").trim().toLowerCase(),
+        page,
+        pageSize,
+      },
+    ],
+    detail: (purchaseId) => ["admin", "purchases", "detail", purchaseId],
+  },
+
+  // Admin Payments / Transactions
+  adminPayments: {
+    all: () => ["admin", "payments"],
+    list: ({ status = "all", search = "", page = 1, pageSize = 15 } = {}) => [
+      "admin",
+      "payments",
+      "list",
+      {
+        status,
+        search: (search || "").trim().toLowerCase(),
+        page,
+        pageSize,
+      },
+    ],
+    detail: (paymentId) => ["admin", "payments", "detail", paymentId],
+  },
+
+  // Admin Sales Reports
+  salesReport: {
+    all: () => ["admin", "reports", "sales"],
+    dashboard: (timeframe = "30d", customRange = null) => [
+      "admin",
+      "reports",
+      "sales",
+      "dashboard",
+      {
+        timeframe,
+        start: customRange?.start || null,
+        end: customRange?.end || null,
+      },
+    ],
+  },
 };
 

@@ -46,15 +46,18 @@ export default function usePricing(plan, basePrice, couponDiscount = 0, paymentM
       remainingAmount = Math.max(Math.round((grand - upfrontAmount) * 100) / 100, 0);
 
       // 5. Determine total EMI cycles (from plan setting, fallback to duration in months - 1)
-      const rawCycles = plan?.totalCycles || plan?.emiConfig?.totalCycles;
-      if (rawCycles && Number(rawCycles) > 0) {
+      const rawCycles =
+        plan?.totalCycles !== undefined && plan?.totalCycles !== null && plan?.totalCycles !== ""
+          ? plan.totalCycles
+          : plan?.emiConfig?.totalCycles;
+      if (rawCycles !== undefined && rawCycles !== null && rawCycles !== "" && Number(rawCycles) >= 0) {
         totalCycles = Number(rawCycles);
       } else {
         const durationDays =
           Number(plan?.durationDays) ||
           (plan?.months ? Number(plan.months) * 30 : 30);
         const months = Math.max(Math.round(durationDays / 30), 1);
-        totalCycles = Math.max(months - 1, 1);
+        totalCycles = Math.max(months - 1, 0);
       }
 
       // 6. Monthly EMI amount per recurring installment

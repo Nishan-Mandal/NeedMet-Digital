@@ -4,7 +4,7 @@ import {
   usePlansQuery,
   usePlanMetricsQuery,
   usePlanMutations,
-} from "../../../hooks/queries/usePlansQuery";
+} from "./usePlansQuery";
 
 export default function useAdminPlans({ currentUser }) {
   const [searchQuery, setSearchQuery] = useState("");

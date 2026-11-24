@@ -3,6 +3,8 @@ import {
   TicketCheck,
   Banknote,
   PlusCircle,
+  CreditCard,
+  TrendingUp,
 } from "lucide-react";
 
 /**
@@ -10,9 +12,19 @@ import {
  */
 export const PAGE_META = {
   "/admin": {
-    title: "Plans & Services",
-    description: "Configure service packages, duration tiers, EMI options, and pricing.",
-    icon: NotepadText,
+    title: "Sales & Revenue Report",
+    description: "Executive analytics, cash flow, plan sales performance, and EMI health.",
+    icon: TrendingUp,
+  },
+  "/admin/reports": {
+    title: "Sales & Revenue Report",
+    description: "Executive analytics, cash flow, plan sales performance, and EMI health.",
+    icon: TrendingUp,
+  },
+  "/admin/sales-report": {
+    title: "Sales & Revenue Report",
+    description: "Executive analytics, cash flow, plan sales performance, and EMI health.",
+    icon: TrendingUp,
   },
   "/admin/plans": {
     title: "Plans & Services",
@@ -33,6 +45,26 @@ export const PAGE_META = {
     title: "Cash Codes Management",
     description: "Issue cryptographically secure store credit codes with immutable audit records.",
     icon: Banknote,
+  },
+  "/admin/transactions": {
+    title: "Transactions",
+    description: "Customer purchases, payment gateway settlements & upcoming EMI schedules.",
+    icon: CreditCard,
+  },
+  "/admin/purchases": {
+    title: "Transactions",
+    description: "Customer purchases, payment gateway settlements & upcoming EMI schedules.",
+    icon: CreditCard,
+  },
+  "/admin/orders": {
+    title: "Transactions",
+    description: "Customer purchases, payment gateway settlements & upcoming EMI schedules.",
+    icon: CreditCard,
+  },
+  "/admin/payments": {
+    title: "Transactions",
+    description: "Customer purchases, payment gateway settlements & upcoming EMI schedules.",
+    icon: CreditCard,
   },
 };
 

@@ -1,19 +1,17 @@
 import React from "react";
 import CheckoutLoadingModal from "../Pricing/Sections/CheckoutLoadingModal";
 import usePurchasedPlanDetails from "./hooks/usePurchasedPlanDetails";
-import {
-  PlanDetailsNav,
-  PlanHeroHeader,
-  MandateActionAlert,
-  PlanVerifiedBanner,
-  PlanFinancialOverview,
-  InstallmentSchedule,
-  PlanDetailsCard,
-  PaymentReceiptsCard,
-  ServiceConciergeCard,
-  PlanDetailsSkeleton,
-  PlanNotFound,
-} from "./Sections";
+import PlanDetailsNav from "./Sections/PlanDetailsNav";
+import PlanHeroHeader from "./Sections/PlanHeroHeader";
+import MandateActionAlert from "./Sections/MandateActionAlert";
+import PlanVerifiedBanner from "./Sections/PlanVerifiedBanner";
+import PlanFinancialOverview from "./Sections/PlanFinancialOverview";
+import InstallmentSchedule from "./Sections/InstallmentSchedule";
+import PlanDetailsCard from "./Sections/PlanDetailsCard";
+import PaymentReceiptsCard from "./Sections/PaymentReceiptsCard";
+import ServiceConciergeCard from "./Sections/ServiceConciergeCard";
+import PlanDetailsSkeleton from "./Sections/PlanDetailsSkeleton";
+import PlanNotFound from "./Sections/PlanNotFound";
 
 export default function PurchasedPlanDetailsPage() {
   const {
